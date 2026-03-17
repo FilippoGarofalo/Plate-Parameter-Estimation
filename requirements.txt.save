@@ -1,0 +1,8 @@
+pytorch
+matplotlib
+numpy
+scipy 
+sounddevice
+soundfile
+librosa
+pandas
