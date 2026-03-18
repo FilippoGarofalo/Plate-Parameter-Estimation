@@ -69,14 +69,19 @@ class DifferentiableModalPlate(nn.Module):
         xi = 0.335 * self.Lx
         yi = 0.467 * Ly
 
-        # A. FREQUENCIES & MASKS
+        # ---------------------------------------------------------
+        # A. FREQUENCIES & MASKS 
+        # ---------------------------------------------------------
+
+        # (from wave numbers)
         g1 = (self.m_vec * np.pi / self.Lx)**2 + (self.n_vec * np.pi / Ly)**2
         g2 = g1 * g1
         
+        #Dispersion relation
         omega_sq = T0_over_mu * g1 + D_over_mu * g2
         omega = torch.sqrt(torch.relu(omega_sq)) 
         
-        # Soft gate to silence modes > 10kHz or < 20Hz without breaking gradients
+        #"Differential gate" for frequencies >10kHz and <20Hz
         temp = 100.0 # Temperature scaling for sigmoid steepness
         mask_high = torch.sigmoid((self.maxOm - omega) / temp)
         mask_low = torch.sigmoid((omega - (20 * 2 * np.pi)) / temp)
@@ -93,30 +98,5 @@ class DifferentiableModalPlate(nn.Module):
         
         # Apply validity mask to the initial amplitudes
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms) * valid_modes_mask
-
-        # ---------------------------------------------------------
-        # C. VECTORIZED SYNTHESIS
-        # ---------------------------------------------------------
-        n_vec = torch.arange(num_samples, device=P.device, dtype=torch.float32)
-        
-        # Broadcasting dimensions: [modes, 1] and [1, samples]
-        omega_col = omega.unsqueeze(1)
-        sigma_col = sigma.unsqueeze(1)
-        P_col = P.unsqueeze(1)
-        n_row = n_vec.unsqueeze(0)
-        
-        # Exact analytical response of a 2-pole resonator
-        decay_env = torch.exp(-sigma_col * n_row * self.k)
-        sine_num = torch.sin((n_row + 1) * omega_col * self.k)
-        sine_den = torch.sin(omega_col * self.k) + 1e-8 
-        
-        mode_waveforms = P_col * decay_env * (sine_num / sine_den)
-        
-        # Sum all modes to create the 1D signal
-        ir_out = torch.sum(mode_waveforms, dim=0)
-        
-        # Optional: Normalize output to prevent massive gradients early in training
-        max_val = torch.max(torch.abs(ir_out)) + 1e-8
-        ir_out = ir_out / max_val
         
         return ir_out
