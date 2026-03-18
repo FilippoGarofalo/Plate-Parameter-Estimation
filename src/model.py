@@ -99,4 +99,4 @@ class DifferentiableModalPlate(nn.Module):
         # Apply validity mask to the initial amplitudes
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms) * valid_modes_mask
         
-        return ir_out
+        #return ir_out
