@@ -11,7 +11,7 @@ class DifferentiableModalPlate(nn.Module):
         self.fmax = 10000.0
         self.maxOm = self.fmax * 2 * np.pi
         
-     
+        
         # 1. FIXED PARAMETERS
         self.register_buffer('Lx', torch.tensor(1.0))
         self.register_buffer('tau_0', torch.tensor(6.0))
@@ -61,7 +61,18 @@ class DifferentiableModalPlate(nn.Module):
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
 
-    def forward(self, num_samples: int) -> torch.Tensor:
+    def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
+        """
+        Synthesize impulse response using modal synthesis with full differentiability.
+        
+        Args:
+            duration: Duration in seconds (default: 1.0)
+            normalize: Normalize output by peak amplitude (default: True)
+            velCalc: If True, compute velocity output; if False, displacement (default: False)
+            
+        Returns:
+            torch.Tensor: Synthesized impulse response waveform (displacement or velocity)
+        """
         #Retrieve scaled physical parameters
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
@@ -79,7 +90,7 @@ class DifferentiableModalPlate(nn.Module):
         
         #Dispersion relation
         omega_sq = T0_over_mu * g1 + D_over_mu * g2
-        omega = torch.sqrt(torch.relu(omega_sq)) 
+        omega = torch.sqrt(torch.relu(omega_sq))
         
         #"Differential gate" for frequencies >10kHz and <20Hz
         temp = 100.0 # Temperature scaling for sigmoid steepness
@@ -98,5 +109,38 @@ class DifferentiableModalPlate(nn.Module):
         
         # Apply validity mask to the initial amplitudes
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms) * valid_modes_mask
+
+        # ---------------------------------------------------------
+        # C. RECURSIVE MODAL SYNTHESIS
+        # ---------------------------------------------------------
+        G1 = 2.0 * torch.cos(omega * self.k) * torch.exp(-sigma * self.k)
+        G2 = torch.exp(-2.0 * sigma * self.k)
+
+        num_samples = int(self.sample_rate * duration)
+        q1 = torch.zeros_like(omega)
+        q2 = torch.zeros_like(omega)
+        ir_out = torch.zeros(num_samples, device=omega.device, dtype=omega.dtype)
+
+        yPrev = torch.tensor(0.0, device=omega.device, dtype=omega.dtype)
         
-        #return ir_out
+        for n in range(num_samples):
+            fin = 1.0 if n == 0 else 0.0
+            q = G1 * q1 - G2 * q2 + P * fin
+            yCur = torch.sum(q1)
+            
+            if velCalc:
+                # Velocity: derivative of displacement
+                ir_out[n] = (yCur - yPrev) / self.k
+            else:
+                # Displacement
+                ir_out[n] = yCur
+            
+            q2, q1 = q1, q
+            yPrev = yCur
+
+        # Normalization
+        if normalize:
+            peak = torch.max(torch.abs(ir_out)) + 1e-8
+            ir_out = ir_out / peak
+
+        return ir_out
