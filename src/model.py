@@ -80,27 +80,22 @@ class DifferentiableModalPlate(nn.Module):
         xi = 0.335 * self.Lx
         yi = 0.467 * Ly
 
-        # ---------------------------------------------------------
         # A. FREQUENCIES & MASKS 
-        # ---------------------------------------------------------
-
         # (from wave numbers)
         g1 = (self.m_vec * np.pi / self.Lx)**2 + (self.n_vec * np.pi / Ly)**2
         g2 = g1 * g1
         
-        #Dispersion relation
+        # Dispersion relation
         omega_sq = T0_over_mu * g1 + D_over_mu * g2
         omega = torch.sqrt(torch.relu(omega_sq))
         
-        #"Differential gate" for frequencies >10kHz and <20Hz
+        # "Differential gate" for frequencies >10kHz and <20Hz
         temp = 100.0 # Temperature scaling for sigmoid steepness
         mask_high = torch.sigmoid((self.maxOm - omega) / temp)
         mask_low = torch.sigmoid((omega - (20 * 2 * np.pi)) / temp)
         valid_modes_mask = mask_high * mask_low
 
-        # ---------------------------------------------------------
         # B. AMPLITUDES & DECAYS
-        # ---------------------------------------------------------
         InWeight = torch.cos(xi * np.pi * self.m_vec / self.Lx) * torch.cos(yi * np.pi * self.n_vec / Ly)
         OutWeight = torch.cos(xo * np.pi * self.m_vec / self.Lx) * torch.cos(yo * np.pi * self.n_vec / Ly)
         
@@ -110,37 +105,36 @@ class DifferentiableModalPlate(nn.Module):
         # Apply validity mask to the initial amplitudes
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms) * valid_modes_mask
 
-        # ---------------------------------------------------------
-        # C. RECURSIVE MODAL SYNTHESIS
-        # ---------------------------------------------------------
-        G1 = 2.0 * torch.cos(omega * self.k) * torch.exp(-sigma * self.k)
-        G2 = torch.exp(-2.0 * sigma * self.k)
-
+        # C. VECTORIZED MODAL SYNTHESIS        
         num_samples = int(self.sample_rate * duration)
-        q1 = torch.zeros_like(omega)
-        q2 = torch.zeros_like(omega)
-        ir_out = torch.zeros(num_samples, device=omega.device, dtype=omega.dtype)
-
-        yPrev = torch.tensor(0.0, device=omega.device, dtype=omega.dtype)
+        n_vec = torch.arange(num_samples, device=P.device, dtype=torch.float32)
         
-        for n in range(num_samples):
-            fin = 1.0 if n == 0 else 0.0
-            q = G1 * q1 - G2 * q2 + P * fin
-            yCur = torch.sum(q1)
-            
-            if velCalc:
-                # Velocity: derivative of displacement
-                ir_out[n] = (yCur - yPrev) / self.k
-            else:
-                # Displacement
-                ir_out[n] = yCur
-            
-            q2, q1 = q1, q
-            yPrev = yCur
+        # Broadcasting dimensions
+        omega_col = omega.unsqueeze(1)
+        sigma_col = sigma.unsqueeze(1)
+        P_col = P.unsqueeze(1)
+        n_row = n_vec.unsqueeze(0)
+        
+        # 1. Calculate continuous displacement 
+        decay_env = torch.exp(-sigma_col * n_row * self.k)
+        sine_num = torch.sin((n_row + 1) * omega_col * self.k)
+        sine_den = torch.sin(omega_col * self.k) + 1e-8 
+        
+        mode_waveforms = P_col * decay_env * (sine_num / sine_den)
+        
+        # 2. Sum all modes to create the 1D displacement signal
+        displacement_out = torch.sum(mode_waveforms, dim=0)
+        
+        # 3. Handle Velocity vs Displacement 
+        if velCalc:
+            y_prev_tensor = torch.cat([torch.tensor([0.0], device=P.device), displacement_out[:-1]])
+            ir_out = (displacement_out - y_prev_tensor) / self.k
+        else:
+            ir_out = displacement_out
 
-        # Normalization
+        # 4. Normalization
         if normalize:
             peak = torch.max(torch.abs(ir_out)) + 1e-8
             ir_out = ir_out / peak
-
+        
         return ir_out
