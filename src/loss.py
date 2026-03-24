@@ -7,7 +7,7 @@ class MultiScaleSpectralLoss(nn.Module):
     Computes the multi-scale spectrogram loss between the generated IR and target IR.
     Computes both linear and log-magnitude STFT differences
     """
-    def __init__(self, fft_sizes=(128, 256, 512, 1024, 2048, 4096)):
+    def __init__(self, fft_sizes=(32, 64, 128, 256, 512, 1024, 2048, 4096)):
         super(MultiScaleSpectralLoss, self).__init__()
         self.fft_sizes = fft_sizes
 

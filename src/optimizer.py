@@ -1,6 +1,9 @@
 import torch.optim as optim
 
-def get_optimizer():
+from model import DifferentiableModalPlate
+
+
+def get_optimizer(model):
     # Initialize Adam Optimizer
     # We use custom learning rates
     optimizer = optim.Adam([

@@ -14,7 +14,7 @@ def main():
     print(f"Using device: {device}")
     
     # Replace this with the actual path to a challenge target IR
-    target_audio_path = "../../target/plate-ir.wav" 
+    target_audio_path = "target/plate-ir.wav" 
     
     sample_rate = 44100
     num_iterations = 300
@@ -32,7 +32,7 @@ def main():
     
     # Initialize Adam Optimizer
     # We use custom learning rates
-    optimizer = get_optimizer()
+    optimizer = get_optimizer(model)
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
