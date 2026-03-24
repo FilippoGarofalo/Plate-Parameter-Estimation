@@ -54,8 +54,19 @@ def main():
         # Step 5: Update Parameters
         optimizer.step()
         
+        # Step 6: Print the updated parameters (look ups for starting values in model.py)
         if iteration % 25 == 0 or iteration == num_iterations - 1:
+            
+            # Safely extract the current bounded physical values
+            mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
+                p.detach().cpu().item() for p in model.get_physical_parameters()
+            ]
+            
+            print(f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
+                  f"mu: {mu:.4f} | D/mu: {D_over_mu:.2f} | T0/mu: {T0_over_mu:.4f}")
+            # Iteration and loss logs
             print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
+            
 
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")
