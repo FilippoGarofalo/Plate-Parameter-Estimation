@@ -1,6 +1,8 @@
 import torch
 import torchaudio
 import os
+import numpy as np
+
 
 
 
@@ -28,3 +30,15 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
     waveform = waveform / peak
     
     return waveform.to(device)
+
+
+def inverse_sigmoid(y, min_val, max_val): 
+    norm_y = (y - min_val) / (max_val - min_val)
+    return np.log(norm_y / (1.0 - norm_y))
+
+def inverse_softplus(y): 
+    # If y is large, the inverse is practically just y itself
+    if y > 20.0:
+        return float(y)
+    # Otherwise, do the normal inverse math safely
+    return float(np.log(np.exp(y) - 1.0))

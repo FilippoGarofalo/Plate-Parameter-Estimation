@@ -10,7 +10,7 @@ def import_libs():
     # ----------------- ----------------------------------------
     # 1. Import original ModalPlate from explicit file path
     # ---------------------------------------------------------
-    modal_path = "adjust_your_path/ModalPlate.py"
+    modal_path = "test/ModalPlate.py"
     spec_modal = importlib.util.spec_from_file_location("ModalPlate_module", modal_path)
     modal_module = importlib.util.module_from_spec(spec_modal)
     sys.modules["ModalPlate_module"] = modal_module
@@ -22,7 +22,7 @@ def import_libs():
     # ---------------------------------------------------------
     # 2. Import PyTorch DifferentiableModalPlate from explicit file path
     # ---------------------------------------------------------
-    model_path = "adjust_your_path/model.py"
+    model_path = "src/model.py"
     spec_model = importlib.util.spec_from_file_location("model_module", model_path)
     model_module = importlib.util.module_from_spec(spec_model)
     sys.modules["model_module"] = model_module

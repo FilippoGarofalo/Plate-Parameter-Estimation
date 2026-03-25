@@ -1,11 +1,10 @@
 import torch
 import torch.optim as optim
 import time
-import os
 
 from model import DifferentiableModalPlate
 from loss import MultiScaleSpectralLoss
-from utils import load_target_audio
+from utils import load_target_audio, inverse_softplus, inverse_sigmoid
 from optimizer import get_optimizer
 
 def main():
