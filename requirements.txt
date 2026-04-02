@@ -6,3 +6,4 @@ sounddevice
 soundfile
 librosa
 pandas
+torchaudio

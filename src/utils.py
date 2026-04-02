@@ -29,12 +29,8 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
     peak = torch.max(torch.abs(waveform)) + 1e-8
     waveform = waveform / peak
     
-    return waveform.to(device)
+    return waveform.to(device).to(torch.float64)
 
-
-def inverse_sigmoid(y, min_val, max_val): 
-    norm_y = (y - min_val) / (max_val - min_val)
-    return np.log(norm_y / (1.0 - norm_y))
 
 def inverse_softplus(y): 
     # If y is large, the inverse is practically just y itself
@@ -42,3 +38,9 @@ def inverse_softplus(y):
         return float(y)
     # Otherwise, do the normal inverse math safely
     return float(np.log(np.exp(y) - 1.0))
+
+def inverse_sigmoid(y, min_val, max_val): 
+    norm_y = (y - min_val) / (max_val - min_val)
+    # Clip to prevent log(0)
+    norm_y = np.clip(norm_y, 1e-7, 1.0 - 1e-7)
+    return float(np.log(norm_y / (1.0 - norm_y)))

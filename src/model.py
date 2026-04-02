@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class DifferentiableModalPlate(nn.Module):
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(self, sample_rate: int = 44100, plate_params: dict = None):
         super(DifferentiableModalPlate, self).__init__()
         self.sample_rate = sample_rate
         self.k = 1.0 / sample_rate
@@ -13,9 +13,9 @@ class DifferentiableModalPlate(nn.Module):
         
         
         # 1. FIXED PARAMETERS
-        self.register_buffer('Lx', torch.tensor(1.0))
+        self.register_buffer('Lx', torch.tensor(0.50))
         self.register_buffer('tau_0', torch.tensor(6.0))
-        self.register_buffer('tau_1', torch.tensor(2.0))
+        self.register_buffer('tau_1', torch.tensor(1.0))
         self.register_buffer('loss_f1', torch.tensor(500.0))
         
         # Rayleigh damping constants
@@ -25,25 +25,34 @@ class DifferentiableModalPlate(nn.Module):
         
         alpha = 3 * np.log(10) / dOmSq * (OmDamp2**2 / self.tau_0 - OmDamp1**2 / self.tau_1)
         beta = 3 * np.log(10) / dOmSq * (1 / self.tau_1 - 1 / self.tau_0)
-        self.register_buffer('alpha', torch.tensor(alpha))
-        self.register_buffer('beta', torch.tensor(beta))
+        self.register_buffer('alpha', alpha.clone().detach().to(torch.float64))
+        self.register_buffer('beta', beta.clone().detach().to(torch.float64))
 
         # Fixed modal grid to prevent graph breaking (Max modes up to 10kHz)
         M_max, N_max = 80, 80 
         m_idx = torch.arange(1, M_max + 1)
         n_idx = torch.arange(1, N_max + 1)
         grid_m, grid_n = torch.meshgrid(m_idx, n_idx, indexing='ij')
-        self.register_buffer('m_vec', grid_m.flatten().float())
-        self.register_buffer('n_vec', grid_n.flatten().float())
+        self.register_buffer('m_vec', grid_m.flatten().clone().detach().to(torch.float64))
+        self.register_buffer('n_vec', grid_n.flatten().clone().detach().to(torch.float64))
 
         
         # 2. LEARNABLE PARAMETERS
-        self.mu_raw = nn.Parameter(torch.tensor(0.0))
-        self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0))
-        self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.0))
-        self.Ly_raw = nn.Parameter(torch.tensor(0.0))
-        self.xo_raw = nn.Parameter(torch.tensor(0.0))
-        self.yo_raw = nn.Parameter(torch.tensor(0.0))
+        if plate_params is None:
+            self.mu_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
+            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
+            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float64)) 
+            self.Ly_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
+            self.xo_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
+            self.yo_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
+        else:
+            print("Initializing with provided plate parameters...")
+            self.mu_raw = nn.Parameter(torch.tensor(plate_params['mu_raw'], dtype=torch.float64))
+            self.D_over_mu_raw = nn.Parameter(torch.tensor(plate_params['D_over_mu_raw'], dtype=torch.float64))
+            self.T0_over_mu_raw = nn.Parameter(torch.tensor(plate_params['T0_over_mu_raw'], dtype=torch.float64)) 
+            self.Ly_raw = nn.Parameter(torch.tensor(plate_params['Ly_raw'], dtype=torch.float64))
+            self.xo_raw = nn.Parameter(torch.tensor(plate_params['xo_raw'], dtype=torch.float64))
+            self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=torch.float64))
 
     def get_physical_parameters(self):
         """
@@ -77,25 +86,28 @@ class DifferentiableModalPlate(nn.Module):
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
         #Initialize input position 
-        xi = 0.335 * self.Lx
-        yi = 0.467 * Ly
+        xi = 0.10 * self.Lx
+        yi = 0.10 * Ly
 
         # A. FREQUENCIES & MASKS 
         # (from wave numbers)
+        #kˆ2 = (m*pi/Lx)² + (n*pi/Ly)²
         g1 = (self.m_vec * np.pi / self.Lx)**2 + (self.n_vec * np.pi / Ly)**2
+        #kˆ4 = kˆ2² Biharmonic operator
         g2 = g1 * g1
         
         # Dispersion relation
         omega_sq = T0_over_mu * g1 + D_over_mu * g2
         omega = torch.sqrt(torch.relu(omega_sq))
         
-        # "Differential gate" for frequencies >10kHz and <20Hz
-        temp = 100.0 # Temperature scaling for sigmoid steepness
-        mask_high = torch.sigmoid((self.maxOm - omega) / temp)
-        mask_low = torch.sigmoid((omega - (20 * 2 * np.pi)) / temp)
+        #hard-coded masking
+        mask_high = (omega <= self.maxOm).float()
+        mask_low = (omega >= (20 * 2 * np.pi)).float()
         valid_modes_mask = mask_high * mask_low
 
         # B. AMPLITUDES & DECAYS
+
+        #spatial filtering weights for input and output positions
         InWeight = torch.cos(xi * np.pi * self.m_vec / self.Lx) * torch.cos(yi * np.pi * self.n_vec / Ly)
         OutWeight = torch.cos(xo * np.pi * self.m_vec / self.Lx) * torch.cos(yo * np.pi * self.n_vec / Ly)
         
@@ -107,7 +119,7 @@ class DifferentiableModalPlate(nn.Module):
 
         # C. VECTORIZED MODAL SYNTHESIS        
         num_samples = int(self.sample_rate * duration)
-        n_vec = torch.arange(num_samples, device=P.device, dtype=torch.float32)
+        n_vec = torch.arange(num_samples, device=P.device, dtype=torch.float64)
         
         # Broadcasting dimensions
         omega_col = omega.unsqueeze(1)

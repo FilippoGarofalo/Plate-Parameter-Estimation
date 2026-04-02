@@ -3,7 +3,7 @@ import torch.optim as optim
 import time
 
 from model import DifferentiableModalPlate
-from loss import MultiScaleSpectralLoss
+from loss import TimeDomainEnergyLoss
 from utils import load_target_audio, inverse_softplus, inverse_sigmoid
 from optimizer import get_optimizer
 
@@ -25,10 +25,52 @@ def main():
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
+    sample_rate = 44100
+    # ---------------------------------------------------------
+    # A. Define the raw physical properties from ModalPlate.py
+    # ---------------------------------------------------------
+    Lx = 0.5
+    Ly = 1.1
+    h = 0.001
+    T0 = 0.01
+    rho = 2430.0
+    E = 6.7e10
+    nu = 0.25
+
+    # ---------------------------------------------------------
+    # B. Calculate the exact physical targets
+    # ---------------------------------------------------------
+    target_mu = rho * h
+    target_D = (E * h**3) / (12 * (1 - nu**2))
+
+    target_D_mu = target_D / target_mu
+    target_T0_mu = T0 / target_mu
+
+    target_xo = 0.61 * Lx
+    target_yo = 0.61 * Ly
+
+    # ---------------------------------------------------------
+    # C. Programmatically generate the raw PyTorch parameters
+    # ---------------------------------------------------------
+    perfect_initial_guess = {
+        # Unbounded parameters (Inverse Softplus)
+        'mu_raw': inverse_softplus(target_mu - 1e-4),
+        'D_over_mu_raw': inverse_softplus(target_D_mu - 1e-4),
+        'T0_over_mu_raw': inverse_softplus(target_T0_mu - 1e-4),
+
+        # Bounded parameters (Inverse Sigmoid with exact boundaries from your model.py)
+        'Ly_raw': inverse_sigmoid(Ly, 1.1, 4.0),
+        
+        'xo_raw': inverse_sigmoid(target_xo, 
+                                0.49 * Lx, 
+                                1.0 * Lx),
+        
+        'yo_raw': inverse_sigmoid(target_yo, 0.51 * Ly, 1.0 * Ly)
+    }
     # 2. INITIALIZE MODULES
-    model = DifferentiableModalPlate(sample_rate=sample_rate).to(device)
-    criterion = MultiScaleSpectralLoss().to(device)
-    
+    model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess).to(device)
+    criterion = TimeDomainEnergyLoss().to(device)
+
     # Initialize Adam Optimizer
     # We use custom learning rates
     optimizer = get_optimizer(model)

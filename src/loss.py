@@ -2,62 +2,45 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class MultiScaleSpectralLoss(nn.Module):
+class TimeDomainEnergyLoss(nn.Module):
     """
-    Computes the multi-scale spectrogram loss between the generated IR and target IR.
-    Computes both linear and log-magnitude STFT differences
+    Computes standard time-domain MSE and Energy MSE between the generated IR and target IR.
+    Perfect for exact mathematical twin matching.
     """
-    def __init__(self, fft_sizes=(32, 64, 128, 256, 512, 1024, 2048, 4096)):
-        super(MultiScaleSpectralLoss, self).__init__()
-        self.fft_sizes = fft_sizes
-
-    def compute_spectrogram(self, x: torch.Tensor, n_fft: int) -> torch.Tensor:
-        """
-        Computes the magnitude spectrogram of a 1D audio signal.
-        """
-        # Changes shape from [num_samples] to [1, num_samples]
-        if x.dim() == 1:
-            x = x.unsqueeze(0)
-            
-        hop_length = n_fft // 4
-        win_length = n_fft
-        
-        # Create a Hann window 
-        window = torch.hann_window(win_length, device=x.device)
-        
-        # Calculate the Short-Time Fourier Transform
-        # return_complex=True is the modern PyTorch standard for stft
-        stft_out = torch.stft(
-            x, 
-            n_fft=n_fft, 
-            hop_length=hop_length, 
-            win_length=win_length, 
-            window=window, 
-            return_complex=True
-        )
-        
-        # Add a small epsilon (1e-7) to prevent log(0).
-        magnitude = torch.abs(stft_out) + 1e-7
-        return magnitude
+    def __init__(self, energy_weight: float = 1.0):
+        super(TimeDomainEnergyLoss, self).__init__()
+        # Weight to balance the raw waveform loss vs the energy power loss
+        self.energy_weight = energy_weight
 
     def forward(self, pred_audio: torch.Tensor, target_audio: torch.Tensor) -> torch.Tensor:
         """
-        Calculates the accumulated loss across all FFT scales.
+        Calculates the combined MSE and Energy loss.
         """
-        total_loss = 0.0
+        # Ensure identical shapes (1D tensors)
+        pred_audio = pred_audio.squeeze()
+        target_audio = target_audio.squeeze()
         
-        for n_fft in self.fft_sizes:
-            # Compute spectrograms
-            S_pred = self.compute_spectrogram(pred_audio, n_fft)
-            S_target = self.compute_spectrogram(target_audio, n_fft)
-            
-            # Linear Scale Loss (L1 distance)
-            loss_lin = F.l1_loss(S_pred, S_target)
-            
-            # Log Scale Loss (L1 distance of logarithms)
-            loss_log = F.l1_loss(torch.log(S_pred), torch.log(S_target))
-            
-            total_loss += (loss_lin + loss_log)
-            
-        # Return the average loss across all different FFT sizes 
-        return total_loss / len(self.fft_sizes)
+        # ---------------------------------------------------------
+        # 1. Standard Time-Domain MSE
+        # ---------------------------------------------------------
+        # This penalizes exact sample-by-sample differences. 
+        # It forces the optimizer to perfectly match phase, frequency, and amplitude.
+        mse_loss = F.mse_loss(pred_audio, target_audio)
+        
+        # ---------------------------------------------------------
+        # 2. Instantaneous Energy MSE
+        # ---------------------------------------------------------
+        # Squaring the audio gives us the energy/power of the signal.
+        # This heavily penalizes mismatched transient spikes and ensures
+        # the overall exponential decay rate (T60) matches perfectly.
+        pred_energy = pred_audio ** 2
+        target_energy = target_audio ** 2
+        
+        energy_loss = F.mse_loss(pred_energy, target_energy)
+        
+        # ---------------------------------------------------------
+        # 3. Total Combined Loss
+        # ---------------------------------------------------------
+        total_loss = mse_loss + (self.energy_weight * energy_loss)
+        
+        return total_loss
