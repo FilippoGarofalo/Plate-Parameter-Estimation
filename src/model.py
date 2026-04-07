@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class DifferentiableModalPlate(nn.Module):
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(self, sample_rate: int = 44100, plate_params: dict = None):
         super(DifferentiableModalPlate, self).__init__()
         self.sample_rate = sample_rate
         self.k = 1.0 / sample_rate
@@ -25,25 +25,36 @@ class DifferentiableModalPlate(nn.Module):
         
         alpha = 3 * np.log(10) / dOmSq * (OmDamp2**2 / self.tau_0 - OmDamp1**2 / self.tau_1)
         beta = 3 * np.log(10) / dOmSq * (1 / self.tau_1 - 1 / self.tau_0)
-        self.register_buffer('alpha', torch.tensor(alpha))
-        self.register_buffer('beta', torch.tensor(beta))
+
+        self.register_buffer('alpha', alpha.clone().detach().to(torch.float32))
+        self.register_buffer('beta', beta.clone().detach().to(torch.float32))
 
         # Fixed modal grid to prevent graph breaking (Max modes up to 10kHz)
         M_max, N_max = 80, 80 
         m_idx = torch.arange(1, M_max + 1)
         n_idx = torch.arange(1, N_max + 1)
         grid_m, grid_n = torch.meshgrid(m_idx, n_idx, indexing='ij')
-        self.register_buffer('m_vec', grid_m.flatten().float())
-        self.register_buffer('n_vec', grid_n.flatten().float())
+
+        self.register_buffer('m_vec', grid_m.flatten().clone().detach().to(torch.float32))
+        self.register_buffer('n_vec', grid_n.flatten().clone().detach().to(torch.float32))
 
         
         # 2. LEARNABLE PARAMETERS
-        self.mu_raw = nn.Parameter(torch.tensor(0.0))
-        self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0))
-        self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.0))
-        self.Ly_raw = nn.Parameter(torch.tensor(0.0))
-        self.xo_raw = nn.Parameter(torch.tensor(0.0))
-        self.yo_raw = nn.Parameter(torch.tensor(0.0))
+        if plate_params is None:
+            self.mu_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
+            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
+            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float32)) 
+            self.Ly_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
+            self.xo_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
+            self.yo_raw = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
+        else:
+            print("Initializing with provided plate parameters...")
+            self.mu_raw = nn.Parameter(torch.tensor(plate_params['mu_raw'], dtype=torch.float32))
+            self.D_over_mu_raw = nn.Parameter(torch.tensor(plate_params['D_over_mu_raw'], dtype=torch.float32))
+            self.T0_over_mu_raw = nn.Parameter(torch.tensor(plate_params['T0_over_mu_raw'], dtype=torch.float32)) 
+            self.Ly_raw = nn.Parameter(torch.tensor(plate_params['Ly_raw'], dtype=torch.float32))
+            self.xo_raw = nn.Parameter(torch.tensor(plate_params['xo_raw'], dtype=torch.float32))
+            self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=torch.float32))
 
     def get_physical_parameters(self):
         """
@@ -55,13 +66,16 @@ class DifferentiableModalPlate(nn.Module):
         T0_over_mu = F.softplus(self.T0_over_mu_raw) + 1e-4
         
         # Sigmoid maps to bounded ranges (given by the challenge specs)
-        Ly = 1.1 + (4.0 - 1.1) * torch.sigmoid(self.Ly_raw)
-        xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * torch.sigmoid(self.xo_raw)
-        yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * torch.sigmoid(self.yo_raw)
+        #Ly = 1.1 + (4.0 - 1.1) * torch.sigmoid(self.Ly_raw)
+        #xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * torch.sigmoid(self.xo_raw)
+        #yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * torch.sigmoid(self.yo_raw)
         
+        Ly = 1.1 + (4.0 - 1.1) * ((torch.tanh(self.Ly_raw) + 1.0) / 2.0)
+        xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * ((torch.tanh(self.xo_raw) + 1.0) / 2.0)
+        yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * ((torch.tanh(self.yo_raw) + 1.0) / 2.0)
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
 
-    def forward(self, num_samples: int) -> torch.Tensor:
+    def forward(self, num_samples: int, normalize: bool = True, velCalc: bool = True, duration: float = 1.0) -> torch.Tensor:
         #Retrieve scaled physical parameters
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
@@ -98,5 +112,43 @@ class DifferentiableModalPlate(nn.Module):
         
         # Apply validity mask to the initial amplitudes
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms) * valid_modes_mask
+
+
+        # C. VECTORIZED MODAL SYNTHESIS        
+        num_samples = int(self.sample_rate * duration)
+        n_vec = torch.arange(num_samples, device=P.device, dtype=torch.float32)
+        
+        displacement_out = torch.zeros(num_samples, device=P.device, dtype=torch.float32)
+        n_row = n_vec.unsqueeze(0)
+        
+        chunk_size = 128
+        for i in range(0, len(omega), chunk_size):
+            end_idx = min(i + chunk_size, len(omega))
+            
+            omega_col = omega[i:end_idx].unsqueeze(1)
+            sigma_col = sigma[i:end_idx].unsqueeze(1)
+            P_col = P[i:end_idx].unsqueeze(1)
+            
+            decay_env = torch.exp(-sigma_col * n_row * self.k)
+            sine_num = torch.sin((n_row + 1) * omega_col * self.k)
+            sine_den = torch.sin(omega_col * self.k) + 1e-8 
+            
+            mode_waveforms = P_col * decay_env * (sine_num / sine_den)
+            
+            # Accumulate into the 1D output tensor directly
+            displacement_out += torch.sum(mode_waveforms, dim=0)
+        # ---------------------------------------
+            
+        # 3. Handle Velocity vs Displacement 
+        if velCalc:
+            y_prev_tensor = torch.cat([torch.tensor([0.0], device=P.device), displacement_out[:-1]])
+            ir_out = (displacement_out - y_prev_tensor) / self.k
+        else:
+            ir_out = displacement_out
+
+        # 4. Normalization
+        if normalize:
+            peak = torch.max(torch.abs(ir_out)) + 1e-8
+            ir_out = ir_out / peak
         
         return ir_out
