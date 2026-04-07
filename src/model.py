@@ -128,9 +128,10 @@ class DifferentiableModalPlate(nn.Module):
         n_row = n_vec.unsqueeze(0)
         
         # 1. Calculate continuous displacement 
-        decay_env = torch.exp(-sigma_col * (n_row) * self.k)
-        sine_num = torch.sin(n_row * omega_col * self.k)
-        sine_den = torch.sin(omega_col * self.k) + 1e-8 
+        # Entrambi gli indici shiftati di 1
+        decay_env = torch.exp(-sigma_col * (n_row - 1) * self.k)  # era n_row
+        sine_num  = torch.sin(n_row * omega_col * self.k)          # era n_row + 1
+        sine_den  = torch.sin(omega_col * self.k) + 1e-8
         
         mode_waveforms = P_col * decay_env * (sine_num / sine_den)
         
