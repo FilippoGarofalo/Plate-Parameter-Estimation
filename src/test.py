@@ -60,52 +60,80 @@ def get_ir():
     test_ir = test_ir.detach().numpy();
     return target_ir, test_ir
 
+def cumulative_energy(ir: np.ndarray) -> np.ndarray:
+    """E_cum[n] = sum_{k=0}^{n} x[k]^2  (normalizzata al valore finale)"""
+    energy = np.cumsum(ir ** 2)
+    return energy / (energy[-1] + 1e-12)
+
+
+def mse_cumulative_energy(ir_a: np.ndarray, ir_b: np.ndarray) -> float:
+    return float(np.mean((cumulative_energy(ir_a) - cumulative_energy(ir_b)) ** 2))
+
+
 def test_forward_pass_equivalence():
-    target_ir, test_ir = get_ir();
+    target_ir, test_ir = get_ir()
 
-    error_signal = target_ir - test_ir;
-    time_axis = np.linspace(0,duration,len(target_ir))
-    print(f"Average Absolute Error: {np.mean(np.abs(error_signal)):.6f}")
-    print(f"Max Absolute Error: {np.max(np.abs(error_signal)):.6f}")
-    
-    #plots
-    plt.figure(figsize=(14, 10))
+    error_signal = target_ir - test_ir
+    time_axis    = np.linspace(0, duration, len(target_ir))
 
-    # Plot 1: Full 1-second Impulse Response
-    plt.subplot(3, 1, 1)
-    plt.plot(time_axis, target_ir, label='NumPy IR', alpha=0.7, color='blue')
-    plt.plot(time_axis, test_ir, label='PyTorch IR', alpha=0.7, linestyle='--', color='orange')
-    plt.title('Full Impulse Responses (1 Second)')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Amplitude')
-    plt.grid(True, alpha=0.3)
-    plt.legend()
+    cum_target = cumulative_energy(target_ir)
+    cum_test   = cumulative_energy(test_ir)
+    mse_cum    = mse_cumulative_energy(target_ir, test_ir)
+    mse_raw    = float(np.mean(error_signal ** 2))
+    max_abs_err = float(np.max(np.abs(error_signal)))   # <-- aggiunto
 
-    # Plot 2: Zoomed-in view (first 50ms) to inspect transients
-    plt.subplot(3, 1, 2)
-    plt.plot(time_axis, target_ir, label='NumPy IR', alpha=0.7, color='blue', marker='o', markersize=2)
-    plt.plot(time_axis, test_ir, label='PyTorch IR', alpha=0.7, linestyle='--', color='orange', marker='x', markersize=2)
-    plt.xlim(0, 0.05) # Zooming in to the first 50 milliseconds
-    plt.title('Zoomed In: First 50ms Transients')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Amplitude')
-    plt.grid(True, alpha=0.3)
-    plt.legend()
+    print(f"Average Absolute Error : {np.mean(np.abs(error_signal)):.6f}")
+    print(f"Max Absolute Error     : {max_abs_err:.6f}")
+    print(f"MSE (raw IR)           : {mse_raw:.2e}")
+    print(f"MSE (cumulative energy): {mse_cum:.2e}")
 
-    # Plot 3: The isolated Error Signal
-    plt.subplot(3, 1, 3)
-    plt.plot(time_axis, error_signal, label='Error (NumPy - PyTorch)', color='red')
-    plt.title('Error Difference Highlighted')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Amplitude Difference')
-    plt.grid(True, alpha=0.3)
-    plt.legend()
+    fig, axes = plt.subplots(4, 1, figsize=(14, 14))
+
+    # 1 — IR completa
+    axes[0].plot(time_axis, target_ir, label='NumPy IR',   alpha=0.7, color='blue')
+    axes[0].plot(time_axis, test_ir,   label='PyTorch IR', alpha=0.7, color='orange', linestyle='--')
+    axes[0].set_title('Full Impulse Responses (1 s)')
+    axes[0].set_xlabel('Time [s]'); axes[0].set_ylabel('Amplitude')
+    axes[0].grid(True, alpha=0.3); axes[0].legend()
+
+    # Box metriche nel primo plot
+    metrics_text = (
+        f"MSE (raw): {mse_raw:.2e}\n"
+        f"Max Abs Error: {max_abs_err:.2e}\n"
+    )
+    axes[0].text(
+        0.02, 0.98, metrics_text,
+        transform=axes[0].transAxes,
+        va='top', ha='left',
+        fontsize=10,
+        bbox=dict(boxstyle='round', facecolor='white', alpha=0.85, edgecolor='gray')
+    )
+
+    # 2 — Zoom primi 50 ms
+    axes[1].plot(time_axis, target_ir, label='NumPy IR',   alpha=0.7, color='blue',   marker='o', markersize=2)
+    axes[1].plot(time_axis, test_ir,   label='PyTorch IR', alpha=0.7, color='orange', marker='x', markersize=2, linestyle='--')
+    axes[1].set_xlim(0, 0.05)
+    axes[1].set_title('Zoomed: First 50 ms Transients')
+    axes[1].set_xlabel('Time [s]'); axes[1].set_ylabel('Amplitude')
+    axes[1].grid(True, alpha=0.3); axes[1].legend()
+
+    # 3 — Energia cumulativa
+    axes[2].plot(time_axis, cum_target, label='NumPy  cumulative energy', color='blue')
+    axes[2].plot(time_axis, cum_test,   label='PyTorch cumulative energy', color='orange', linestyle='--')
+    axes[2].fill_between(time_axis, cum_target, cum_test, alpha=0.15, color='red',
+                         label=f'Gap  (MSE={mse_cum:.2e})')
+    axes[2].set_title('Normalized Cumulative Energy')
+    axes[2].set_xlabel('Time [s]'); axes[2].set_ylabel('Cumulative energy (normalized)')
+    axes[2].grid(True, alpha=0.3); axes[2].legend()
+
+    # 4 — Errore segnale grezzo
+    axes[3].plot(time_axis, error_signal, label='Error (NumPy − PyTorch)', color='red')
+    axes[3].set_title(f'Error Signal')
+    axes[3].set_xlabel('Time [s]'); axes[3].set_ylabel('Amplitude difference')
+    axes[3].grid(True, alpha=0.3); axes[3].legend()
 
     plt.tight_layout()
     plt.show()
-
-    return
-
   
 
 test_forward_pass_equivalence()

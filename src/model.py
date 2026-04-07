@@ -101,8 +101,8 @@ class DifferentiableModalPlate(nn.Module):
         omega = torch.sqrt(torch.relu(omega_sq))
         
         #hard-coded masking
-        mask_high = (omega <= self.maxOm).float()
-        mask_low = (omega >= (20 * 2 * np.pi)).float()
+        mask_high = (omega <= self.maxOm).to(dtype=omega.dtype)   # era .float() → float32
+        mask_low  = (omega >= (20 * 2 * np.pi)).to(dtype=omega.dtype)
         valid_modes_mask = mask_high * mask_low
 
         # B. AMPLITUDES & DECAYS
@@ -128,8 +128,8 @@ class DifferentiableModalPlate(nn.Module):
         n_row = n_vec.unsqueeze(0)
         
         # 1. Calculate continuous displacement 
-        decay_env = torch.exp(-sigma_col * n_row * self.k)
-        sine_num = torch.sin((n_row + 1) * omega_col * self.k)
+        decay_env = torch.exp(-sigma_col * (n_row) * self.k)
+        sine_num = torch.sin(n_row * omega_col * self.k)
         sine_den = torch.sin(omega_col * self.k) + 1e-8 
         
         mode_waveforms = P_col * decay_env * (sine_num / sine_den)
