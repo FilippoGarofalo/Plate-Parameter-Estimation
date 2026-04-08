@@ -53,10 +53,10 @@ def main():
     # C. Programmatically generate the raw PyTorch parameters
     # ---------------------------------------------------------
     perfect_initial_guess = {
-        # Unbounded parameters (Inverse Softplus)
-        'mu_raw': inverse_softplus(target_mu - 1e-4),
-        'D_over_mu_raw': inverse_softplus(target_D_mu - 1e-4),
-        'T0_over_mu_raw': inverse_softplus(target_T0_mu - 1e-4),
+        # Raw parameters learn normalized O(1) values — divide by scale before inverse_softplus
+        'mu_raw': inverse_softplus(target_mu / DifferentiableModalPlate._MU_SCALE - 1e-4),
+        'D_over_mu_raw': inverse_softplus(target_D_mu / DifferentiableModalPlate._D_MU_SCALE - 1e-4),
+        'T0_over_mu_raw': inverse_softplus(target_T0_mu / DifferentiableModalPlate._T0_MU_SCALE - 1e-4),
 
         # Bounded parameters (Inverse Sigmoid with exact boundaries from your model.py)
         'Ly_raw': inverse_sigmoid(Ly, 1.1, 4.0),
@@ -104,7 +104,7 @@ def main():
             ]
             
             print(f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
-                  f"mu: {mu:.4f} | D/mu: {D_over_mu:.2f} | T0/mu: {T0_over_mu:.4f}")
+                  f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
             # Iteration and loss logs
             print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
             

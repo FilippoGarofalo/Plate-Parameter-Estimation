@@ -37,10 +37,10 @@ target_yo = 0.61 * Ly
 # C. Programmatically generate the raw PyTorch parameters
 # ---------------------------------------------------------
 perfect_initial_guess = {
-    # Unbounded parameters (Inverse Softplus)
-    'mu_raw': inverse_softplus(target_mu - 1e-4),
-    'D_over_mu_raw': inverse_softplus(target_D_mu - 1e-4),
-    'T0_over_mu_raw': inverse_softplus(target_T0_mu - 1e-4),
+    # Raw parameters learn normalized O(1) values — divide by scale before inverse_softplus
+    'mu_raw': inverse_softplus(target_mu / DifferentiableModalPlate._MU_SCALE - 1e-4),
+    'D_over_mu_raw': inverse_softplus(target_D_mu / DifferentiableModalPlate._D_MU_SCALE - 1e-4),
+    'T0_over_mu_raw': inverse_softplus(target_T0_mu / DifferentiableModalPlate._T0_MU_SCALE - 1e-4),
 
     # Bounded parameters (Inverse Sigmoid with exact boundaries from your model.py)
     'Ly_raw': inverse_sigmoid(Ly, 1.1, 4.0),
