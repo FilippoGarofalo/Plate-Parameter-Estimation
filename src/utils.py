@@ -6,7 +6,8 @@ import numpy as np
 
 
 
-def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.device = torch.device('cpu')) -> torch.Tensor:
+def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.device = torch.device('cpu'),
+                      dtype: torch.dtype = torch.float64) -> torch.Tensor:
     """Loads and preprocesses the target impulse response."""
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Cannot find target audio at {filepath}")
@@ -29,7 +30,7 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
     peak = torch.max(torch.abs(waveform)) + 1e-8
     waveform = waveform / peak
     
-    return waveform.to(device).to(torch.float64)
+    return waveform.to(device=device, dtype=dtype)
 
 
 def inverse_softplus(y): 

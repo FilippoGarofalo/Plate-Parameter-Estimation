@@ -17,9 +17,10 @@ def main():
     
     sample_rate = 44100
     num_iterations = 300
-    
+    dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
+
     # Load the target audio
-    target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device)
+    target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype)
     
     # Computes target IR duration
     duration = len(target_ir) / sample_rate
@@ -68,7 +69,7 @@ def main():
         'yo_raw': inverse_sigmoid(target_yo, 0.51 * Ly, 1.0 * Ly)
     }
     # 2. INITIALIZE MODULES
-    model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess).to(device)
+    model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess, dtype=dtype).to(device)
     criterion = TimeDomainEnergyLoss().to(device)
 
     # Initialize Adam Optimizer
@@ -82,19 +83,26 @@ def main():
     for iteration in range(num_iterations):
         # Step 1: Clear the gradients
         optimizer.zero_grad()
-        
+
         # Step 2: Forward Pass
+        if iteration == 0: print("  [diag] forward...", flush=True)
         pred_ir = model(duration=duration, normalize=True, velCalc=False)
-        
+
         # Step 3: Compute Loss
+        if iteration == 0: print("  [diag] loss...", flush=True)
         loss = criterion(pred_ir, target_ir)
-        
+
         # Step 4: Backward Pass
+        if iteration == 0: print(f"  [diag] loss={loss.item():.6f}  backward...", flush=True)
         loss.backward()
-        
+
+        if iteration == 0:
+            grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
+            print(f"  [diag] grad norms: {grad_norms}", flush=True)
+
         # Step 5: Update Parameters
         optimizer.step()
-        
+
         # Step 6: Print the updated parameters (look ups for starting values in model.py)
         if iteration % 25 == 0 or iteration == num_iterations - 1:
             
