@@ -6,27 +6,28 @@ import numpy as np
 
 
 
+import os
+import torch
+import torchaudio
+
 def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.device = torch.device('cpu'),
                       dtype: torch.dtype = torch.float64) -> torch.Tensor:
-    """Loads and preprocesses the target impulse response."""
+    
     if not os.path.exists(filepath):
-        raise FileNotFoundError(f"Cannot find target audio at {filepath}")
-        
+        raise FileNotFoundError(f"File non trovato: {filepath}")
+
     waveform, sr = torchaudio.load(filepath, backend='soundfile')
     
-    # Convert to mono if stereo
     if waveform.shape[0] > 1:
         waveform = torch.mean(waveform, dim=0, keepdim=True)
         
-    # Resample if necessary
+    # Resampling
     if sr != target_sr:
         resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
         waveform = resampler(waveform)
     
-    # Make it 1D
     waveform = waveform.squeeze(0)
     
-    # Normalization 
     peak = torch.max(torch.abs(waveform)) + 1e-8
     waveform = waveform / peak
     
