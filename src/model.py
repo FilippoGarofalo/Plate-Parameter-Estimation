@@ -64,10 +64,7 @@ class DifferentiableModalPlate(nn.Module):
         D_over_mu = F.softplus(self.D_over_mu_raw) + 1e-4
         T0_over_mu = F.softplus(self.T0_over_mu_raw) + 1e-4
         
-        # Sigmoid maps to bounded ranges (given by the challenge specs)
-        #Ly = 1.1 + (4.0 - 1.1) * torch.sigmoid(self.Ly_raw)
-        #xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * torch.sigmoid(self.xo_raw)
-        #yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * torch.sigmoid(self.yo_raw)
+        
 
         # tanh maps to bounded ranges with steeper gradients near the boundaries, which can help optimization
         Ly = 1.1 + (4.0 - 1.1) * ((torch.tanh(self.Ly_raw) + 1.0) / 2.0)
@@ -77,73 +74,55 @@ class DifferentiableModalPlate(nn.Module):
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
 
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
-        """
-        Synthesize impulse response using modal synthesis with full differentiability.
-        
-        Args:
-            duration: Duration in seconds (default: 1.0)
-            normalize: Normalize output by peak amplitude (default: True)
-            velCalc: If True, compute velocity output; if False, displacement (default: False)
-            
-        Returns:
-            torch.Tensor: Synthesized impulse response waveform (displacement or velocity)
-        """
-        #Retrieve scaled physical parameters
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
-        #Initialize input position 
-        xi = 0.10 * self.Lx
-        yi = 0.10 * Ly
+        # We divide by Lx and Ly to get the fractional position [0.0 - 1.0]
+        frac_xi = 0.10  # fp_x in ModalPlate.py
+        frac_yi = 0.10  # fp_y in ModalPlate.py
+        frac_xo = xo / self.Lx 
+        frac_yo = yo / Ly
 
         # A. FREQUENCIES & MASKS 
-        # (from wave numbers)
-        #kˆ2 = (m*pi/Lx)² + (n*pi/Ly)²
         g1 = (self.m_vec * np.pi / self.Lx)**2 + (self.n_vec * np.pi / Ly)**2
-        #kˆ4 = kˆ2² Biharmonic operator
         g2 = g1 * g1
         
-        # Dispersion relation
         omega_sq = T0_over_mu * g1 + D_over_mu * g2
         omega = torch.sqrt(torch.relu(omega_sq))
         
-        #hard-coded masking
-        mask_high = (omega <= self.maxOm).to(dtype=omega.dtype)   # era .float() → float32
-        mask_low  = (omega >= (20 * 2 * np.pi)).to(dtype=omega.dtype)
-        valid_modes_mask = mask_high * mask_low
-
-        # B. AMPLITUDES & DECAYS
-
-        #spatial filtering weights for input and output positions
-        InWeight = torch.cos(xi * np.pi * self.m_vec / self.Lx) * torch.cos(yi * np.pi * self.n_vec / Ly)
-        OutWeight = torch.cos(xo * np.pi * self.m_vec / self.Lx) * torch.cos(yo * np.pi * self.n_vec / Ly)
+        # B. AMPLITUDES & DECAYS 
+        InWeight = torch.cos(frac_xi * np.pi * self.m_vec) * torch.cos(frac_yi * np.pi * self.n_vec)
+        OutWeight = torch.cos(frac_xo * np.pi * self.m_vec) * torch.cos(frac_yo * np.pi * self.n_vec)
         
         sigma = self.alpha + self.beta * omega**2
         ms = 0.25 * mu * self.Lx * Ly 
         
-        # Apply validity mask to the initial amplitudes
-        P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms) * valid_modes_mask
-
-        # C. VECTORIZED MODAL SYNTHESIS        
+        # Exact match to Pvec in ModalPlate.py 
+        P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms)
+        
+        # 1. Find only the valid indices (20Hz to 10kHz)
+        valid_idx = torch.where((omega <= self.maxOm) & (omega >= (20 * 2 * np.pi)))[0]
+        
+        # 2. Extract valid parameters and unsqueeze to create (N, 1) column vectors
+        w_c = omega[valid_idx].unsqueeze(1)
+        s_c = sigma[valid_idx].unsqueeze(1)
+        p_c = P[valid_idx].unsqueeze(1)
+        
         num_samples = int(self.sample_rate * duration)
-        n_vec = torch.arange(num_samples, device=P.device, dtype=self.dtype)
         
-        # Broadcasting dimensions
-        omega_col = omega.unsqueeze(1)
-        sigma_col = sigma.unsqueeze(1)
-        P_col = P.unsqueeze(1)
-        n_row = n_vec.unsqueeze(0)
+        # Create a (1, T) row vector for the time indices
+        n_row = torch.arange(num_samples, device=P.device, dtype=self.dtype).unsqueeze(0)
         
-        # 1. Calculate continuous displacement 
-        # Entrambi gli indici shiftati di 1
-        decay_env = torch.exp(-sigma_col * (n_row - 1) * self.k)  # era n_row
-        sine_num  = torch.sin(n_row * omega_col * self.k)          # era n_row + 1
-        sine_den  = torch.sin(omega_col * self.k) + 1e-8
+        # Continuous evaluation of the biquad
+        decay_env = torch.exp(-s_c * (n_row - 1) * self.k)
+        sine_num  = torch.sin(n_row * w_c * self.k)
+        sine_den  = torch.sin(w_c * self.k) + 1e-8
         
-        mode_waveforms = P_col * decay_env * (sine_num / sine_den)
+        # This creates the large intermediate matrix: (num_valid_modes, num_samples)
+        mode_waveforms = p_c * decay_env * (sine_num / sine_den)
         
-        # 2. Sum all modes to create the 1D displacement signal
+        # Sum down the mode dimension to squash it into the 1D audio signal
         displacement_out = torch.sum(mode_waveforms, dim=0)
-        
+
         # 3. Handle Velocity vs Displacement 
         if velCalc:
             y_prev_tensor = torch.cat([torch.tensor([0.0], device=P.device, dtype=self.dtype), displacement_out[:-1]])

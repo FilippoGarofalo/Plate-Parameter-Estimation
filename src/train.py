@@ -50,20 +50,9 @@ def main():
     target_xo = 0.61 * Lx
     target_yo = 0.61 * Ly
 
-    # ---------------------------------------------------------
-    # C. Programmatically generate the raw PyTorch parameters
-    # ---------------------------------------------------------
-    perfect_initial_guess = {
-        'mu_raw':         inverse_softplus(target_mu    - 1e-4),
-        'D_over_mu_raw':  inverse_softplus(target_D_mu  - 1e-4),
-        'T0_over_mu_raw': inverse_softplus(target_T0_mu - 1e-4),
 
-        'Ly_raw': inverse_tanh(Ly,        1.1,       4.0),
-        'xo_raw': inverse_tanh(target_xo, 0.49 * Lx, 1.0 * Lx),
-        'yo_raw': inverse_tanh(target_yo, 0.51 * Ly, 1.0 * Ly),
-    }
     # 2. INITIALIZE MODULES
-    model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess, dtype=dtype).to(device)
+    model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
     criterion = TimeDomainEnergyLoss().to(device)
 
     # Initialize Adam Optimizer

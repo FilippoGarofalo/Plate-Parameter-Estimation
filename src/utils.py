@@ -41,7 +41,11 @@ def inverse_softplus(y):
     return float(np.log(np.exp(y) - 1.0))
 
 def inverse_tanh(y, min_val, max_val):
-    # Inverse of: y = min_val + (max_val - min_val) * (tanh(x) + 1) / 2
     norm_y = (y - min_val) / (max_val - min_val)  # → [0, 1]
-    norm_y = np.clip(norm_y, -0.999999, 0.999999)
-    return float(0.5 * np.log((1 + norm_y) / (1 - norm_y))) 
+    
+    norm_y_mapped = 2.0 * norm_y - 1.0
+    
+    # Clip to avoid infinity
+    norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
+    
+    return float(0.5 * np.log((1 + norm_y_mapped) / (1 - norm_y_mapped)))
