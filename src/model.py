@@ -65,9 +65,14 @@ class DifferentiableModalPlate(nn.Module):
         T0_over_mu = F.softplus(self.T0_over_mu_raw) + 1e-4
         
         # Sigmoid maps to bounded ranges (given by the challenge specs)
-        Ly = 1.1 + (4.0 - 1.1) * torch.sigmoid(self.Ly_raw)
-        xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * torch.sigmoid(self.xo_raw)
-        yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * torch.sigmoid(self.yo_raw)
+        #Ly = 1.1 + (4.0 - 1.1) * torch.sigmoid(self.Ly_raw)
+        #xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * torch.sigmoid(self.xo_raw)
+        #yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * torch.sigmoid(self.yo_raw)
+
+        # tanh maps to bounded ranges with steeper gradients near the boundaries, which can help optimization
+        Ly = 1.1 + (4.0 - 1.1) * ((torch.tanh(self.Ly_raw) + 1.0) / 2.0)
+        xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * ((torch.tanh(self.xo_raw) + 1.0) / 2.0)
+        yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * ((torch.tanh(self.yo_raw) + 1.0) / 2.0)
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
 

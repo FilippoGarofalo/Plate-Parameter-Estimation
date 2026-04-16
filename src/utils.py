@@ -40,8 +40,8 @@ def inverse_softplus(y):
     # Otherwise, do the normal inverse math safely
     return float(np.log(np.exp(y) - 1.0))
 
-def inverse_sigmoid(y, min_val, max_val): 
-    norm_y = (y - min_val) / (max_val - min_val)
-    # Clip to prevent log(0)
-    norm_y = np.clip(norm_y, 1e-7, 1.0 - 1e-7)
-    return float(np.log(norm_y / (1.0 - norm_y)))
+def inverse_tanh(y, min_val, max_val):
+    # Inverse of: y = min_val + (max_val - min_val) * (tanh(x) + 1) / 2
+    norm_y = (y - min_val) / (max_val - min_val)  # → [0, 1]
+    norm_y = np.clip(norm_y, -0.999999, 0.999999)
+    return float(0.5 * np.log((1 + norm_y) / (1 - norm_y))) 

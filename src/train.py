@@ -3,7 +3,7 @@ import time
 
 from model import DifferentiableModalPlate
 from loss import TimeDomainEnergyLoss
-from utils import load_target_audio, inverse_softplus, inverse_sigmoid
+from utils import load_target_audio, inverse_softplus, inverse_tanh
 from optimizer import get_optimizer
 
 def main():
@@ -16,6 +16,7 @@ def main():
     
     sample_rate = 44100
     num_iterations = 300
+    LR = 0.01
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
@@ -52,19 +53,19 @@ def main():
     # ---------------------------------------------------------
     # C. Programmatically generate the raw PyTorch parameters
     # ---------------------------------------------------------
-    perfect_initial_guess = {
-        'mu_raw': inverse_softplus(target_mu - 1e-4),
-        'D_over_mu_raw': inverse_softplus(target_D_mu - 1e-4),
-        'T0_over_mu_raw': inverse_softplus(target_T0_mu - 1e-4),
+    # material params: physical = (softplus(raw) + 1e-4) * SCALE
+    # → raw = inverse_softplus(physical / SCALE - 1e-4)
+    _MU_SCALE, _D_MU_SCALE, _T0_MU_SCALE = 2.43, 2.452, 4.115e-3
 
-        # Bounded parameters (Inverse Sigmoid with exact boundaries from your model.py)
-        'Ly_raw': inverse_sigmoid(Ly, 1.1, 4.0),
-        
-        'xo_raw': inverse_sigmoid(target_xo, 
-                                0.49 * Lx, 
-                                1.0 * Lx),
-        
-        'yo_raw': inverse_sigmoid(target_yo, 0.51 * Ly, 1.0 * Ly)
+    perfect_initial_guess = {
+        'mu_raw':         inverse_softplus(target_mu    / _MU_SCALE    - 1e-4),
+        'D_over_mu_raw':  inverse_softplus(target_D_mu  / _D_MU_SCALE  - 1e-4),
+        'T0_over_mu_raw': inverse_softplus(target_T0_mu / _T0_MU_SCALE - 1e-4),
+
+        # geometric params: unchanged tanh mapping
+        'Ly_raw': inverse_tanh(Ly,        1.1,       4.0),
+        'xo_raw': inverse_tanh(target_xo, 0.49 * Lx, 1.0 * Lx),
+        'yo_raw': inverse_tanh(target_yo, 0.51 * Ly, 1.0 * Ly),
     }
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess, dtype=dtype).to(device)
@@ -72,7 +73,7 @@ def main():
 
     # Initialize Adam Optimizer
     # We use custom learning rates
-    optimizer = get_optimizer(model)
+    optimizer = get_optimizer(model, lr=LR)
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
