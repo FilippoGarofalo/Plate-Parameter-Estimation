@@ -3,3 +3,4 @@ test/__pycache__/*
 .vscode/*
 .DS_Store
 CLAUDE.md
+.idea/*

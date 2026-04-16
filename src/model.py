@@ -5,11 +5,6 @@ import numpy as np
 
 
 class DifferentiableModalPlate(nn.Module):
-    # Nominal physical scales (default challenge params: rho=2430, h=0.001, E=6.7e10, nu=0.25, T0=0.01)
-    # Raw parameters learn normalized values O(1); get_physical_parameters() rescales back.
-    _MU_SCALE    = 2.43        # rho * h
-    _D_MU_SCALE  = 2.452      # D / (rho*h),  D = E*h^3 / (12*(1-nu^2)) = 5.956 N·m
-    _T0_MU_SCALE = 4.115e-3   # T0 / (rho*h)
 
     def __init__(self, sample_rate: int = 44100, plate_params: dict = None,
                  dtype: torch.dtype = torch.float64):
@@ -65,10 +60,9 @@ class DifferentiableModalPlate(nn.Module):
         """
         Applies mathematical bounds through differentiable tranformations
         """
-        # Softplus learns normalized O(1) values; rescale back to physical units
-        mu = (F.softplus(self.mu_raw) + 1e-4) * self._MU_SCALE
-        D_over_mu = (F.softplus(self.D_over_mu_raw) + 1e-4) * self._D_MU_SCALE
-        T0_over_mu = (F.softplus(self.T0_over_mu_raw) + 1e-4) * self._T0_MU_SCALE
+        mu = F.softplus(self.mu_raw) + 1e-4
+        D_over_mu = F.softplus(self.D_over_mu_raw) + 1e-4
+        T0_over_mu = F.softplus(self.T0_over_mu_raw) + 1e-4
         
         # Sigmoid maps to bounded ranges (given by the challenge specs)
         Ly = 1.1 + (4.0 - 1.1) * torch.sigmoid(self.Ly_raw)
