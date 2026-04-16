@@ -53,16 +53,11 @@ def main():
     # ---------------------------------------------------------
     # C. Programmatically generate the raw PyTorch parameters
     # ---------------------------------------------------------
-    # material params: physical = (softplus(raw) + 1e-4) * SCALE
-    # → raw = inverse_softplus(physical / SCALE - 1e-4)
-    _MU_SCALE, _D_MU_SCALE, _T0_MU_SCALE = 2.43, 2.452, 4.115e-3
-
     perfect_initial_guess = {
-        'mu_raw':         inverse_softplus(target_mu    / _MU_SCALE    - 1e-4),
-        'D_over_mu_raw':  inverse_softplus(target_D_mu  / _D_MU_SCALE  - 1e-4),
-        'T0_over_mu_raw': inverse_softplus(target_T0_mu / _T0_MU_SCALE - 1e-4),
+        'mu_raw':         inverse_softplus(target_mu    - 1e-4),
+        'D_over_mu_raw':  inverse_softplus(target_D_mu  - 1e-4),
+        'T0_over_mu_raw': inverse_softplus(target_T0_mu - 1e-4),
 
-        # geometric params: unchanged tanh mapping
         'Ly_raw': inverse_tanh(Ly,        1.1,       4.0),
         'xo_raw': inverse_tanh(target_xo, 0.49 * Lx, 1.0 * Lx),
         'yo_raw': inverse_tanh(target_yo, 0.51 * Ly, 1.0 * Ly),
