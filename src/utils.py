@@ -12,7 +12,7 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Cannot find target audio at {filepath}")
         
-    waveform, sr = torchaudio.load(filepath)
+    waveform, sr = torchaudio.load(filepath, backend='soundfile')
     
     # Convert to mono if stereo
     if waveform.shape[0] > 1:
