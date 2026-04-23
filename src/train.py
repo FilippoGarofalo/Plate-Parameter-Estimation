@@ -53,7 +53,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss().to(device)
+    criterion = TimeDomainEnergyLoss(energy_weight=0.05, spectral_weight=1.0).to(device)
 
     # Initialize Adam Optimizer
     # We use custom learning rates
