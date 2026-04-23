@@ -18,23 +18,21 @@ class TimeDomainEnergyLoss(nn.Module):
         self.win_length = 2048
 
     def forward(self, pred_audio: torch.Tensor, target_audio: torch.Tensor) -> torch.Tensor:
+        """
+        Calculates the combined MSE, Energy loss, and STFT penalty.
+        """
         pred_audio = pred_audio.squeeze()
         target_audio = target_audio.squeeze()
+    
+        mse_loss = F.mse_loss(pred_audio, target_audio)
         
+        pred_energy = pred_audio ** 2
+        target_energy = target_audio ** 2
         
-        with torch.no_grad():
-            target_scale = 1.0 / (torch.max(torch.abs(target_audio)) + 1e-8)
-            
-        pred_scaled = pred_audio * target_scale
-        target_scaled = target_audio * target_scale
-        
-        mse_loss = F.mse_loss(pred_scaled, target_scaled)
-        
-        pred_energy = pred_scaled ** 2
-        target_energy = target_scaled ** 2
         energy_loss = F.mse_loss(pred_energy, target_energy)
         
         window = torch.hann_window(self.win_length).to(pred_audio.device)
+        
         pred_stft = torch.stft(pred_audio.unsqueeze(0), n_fft=self.n_fft, hop_length=self.hop_length, 
                                win_length=self.win_length, window=window, return_complex=True)
         target_stft = torch.stft(target_audio.unsqueeze(0), n_fft=self.n_fft, hop_length=self.hop_length, 
@@ -42,8 +40,9 @@ class TimeDomainEnergyLoss(nn.Module):
         
         pred_mag = torch.abs(pred_stft)
         target_mag = torch.abs(target_stft)
-        stft_loss = F.l1_loss(torch.log(pred_mag + 1e-7), torch.log(target_mag + 1e-7))
         
+        stft_loss = F.l1_loss(torch.log(pred_mag + 1e-7), torch.log(target_mag + 1e-7))
+ 
         total_loss = mse_loss + (self.energy_weight * energy_loss) + (self.stft_weight * stft_loss)
         
         return total_loss
