@@ -4,11 +4,14 @@ import os
 import numpy as np
 
 
-
-
-import os
-import torch
-import torchaudio
+def load_challenge_npz(filepath, device='cpu', dtype=torch.float64):
+    data = np.load(filepath)
+    
+    waveform_np = data['ir'] 
+    
+    waveform = torch.from_numpy(waveform_np).to(device=device, dtype=dtype)
+    
+    return waveform.squeeze()
 
 def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.device = torch.device('cpu'),
                       dtype: torch.dtype = torch.float64, normalize: bool = True) -> torch.Tensor:

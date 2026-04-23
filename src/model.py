@@ -11,20 +11,19 @@ class DifferentiableModalPlate(nn.Module):
         super(DifferentiableModalPlate, self).__init__()
         self.sample_rate = sample_rate
         self.k = 1.0 / sample_rate
-        self.fmax = 10000.0
+        self.fmax = 20000.0
         self.maxOm = self.fmax * 2 * np.pi
         self.dtype = dtype
 
         # 1. FIXED PARAMETERS
-        self.register_buffer('Lx', torch.tensor(0.50, dtype=dtype))
+        self.register_buffer('Lx', torch.tensor(1.0, dtype=dtype))
         self.register_buffer('tau_0', torch.tensor(6.0, dtype=dtype))
-        self.register_buffer('tau_1', torch.tensor(1.0, dtype=dtype))
+        self.register_buffer('tau_1', torch.tensor(2.0, dtype=dtype))
         self.register_buffer('loss_f1', torch.tensor(500.0, dtype=dtype))
 
-        # FATTORI DI SCALA FISICI
-        self.register_buffer('mu_scale', torch.tensor(3.5, dtype=dtype))
-        self.register_buffer('D_over_mu_scale', torch.tensor(3.5, dtype=dtype))
-        self.register_buffer('T0_over_mu_scale', torch.tensor(0.006, dtype=dtype))
+        self.register_buffer('mu_scale', torch.tensor(110.0, dtype=dtype))
+        self.register_buffer('D_over_mu_scale', torch.tensor(1100.0, dtype=dtype))
+        self.register_buffer('T0_over_mu_scale', torch.tensor(500.0, dtype=dtype))
 
         # Rayleigh damping constants
         OmDamp1 = 0.0
@@ -37,7 +36,7 @@ class DifferentiableModalPlate(nn.Module):
         self.register_buffer('beta', beta.clone().detach().to(dtype))
 
         # Fixed modal grid to prevent graph breaking (Max modes up to 10kHz)
-        M_max, N_max = 80, 80
+        M_max, N_max = 120, 120
         m_idx = torch.arange(1, M_max + 1)
         n_idx = torch.arange(1, N_max + 1)
         grid_m, grid_n = torch.meshgrid(m_idx, n_idx, indexing='ij')
@@ -62,28 +61,28 @@ class DifferentiableModalPlate(nn.Module):
             self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=dtype))
 
     def get_physical_parameters(self):
-        """
-        Applies mathematical bounds through differentiable tranformations
-        """
-        mu = (F.softplus(self.mu_raw) * self.mu_scale) + 1e-4
-        D_over_mu = (F.softplus(self.D_over_mu_raw) * self.D_over_mu_scale) + 1e-4
-        T0_over_mu = (F.softplus(self.T0_over_mu_raw) * self.T0_over_mu_scale) + 1e-4
         
-        
+        def map_range(x, min_v, max_v):
+            return min_v + (max_v - min_v) * ((torch.tanh(x) + 1.0) / 2.0)
 
-        # tanh maps to bounded ranges with steeper gradients near the boundaries, which can help optimization
-        Ly = 1.1 + (4.0 - 1.1) * ((torch.tanh(self.Ly_raw) + 1.0) / 2.0)
-        xo = (0.49 * self.Lx) + ((1.0 - 0.49) * self.Lx) * ((torch.tanh(self.xo_raw) + 1.0) / 2.0)
-        yo = (0.51 * Ly) + ((1.0 - 0.51) * Ly) * ((torch.tanh(self.yo_raw) + 1.0) / 2.0)
+        mu = map_range(self.mu_raw, 2.43, 106.15)
+        
+        D_over_mu = map_range(self.D_over_mu_raw, 0.05, 1005.9)
+        
+        T0_over_mu = map_range(self.T0_over_mu_raw, 0.0001, 411.52)
+
+        Ly = map_range(self.Ly_raw, 1.1, 4.0)
+        
+        xo = map_range(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
+        yo = map_range(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
-
+    
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
-        # We divide by Lx and Ly to get the fractional position [0.0 - 1.0]
-        frac_xi = 0.10  # fp_x in ModalPlate.py
-        frac_yi = 0.10  # fp_y in ModalPlate.py
+        frac_xi = 0.335  
+        frac_yi = 0.467  
         frac_xo = xo / self.Lx 
         frac_yo = yo / Ly
 
