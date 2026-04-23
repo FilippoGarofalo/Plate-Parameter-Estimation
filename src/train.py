@@ -15,7 +15,7 @@ def main():
     target_audio_path = "target/plate-ir-notnorm.wav" 
     
     sample_rate = 44100
-    num_iterations = 5000
+    num_iterations = 2000
     LR = 0.01
     dtype = torch.float64   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
