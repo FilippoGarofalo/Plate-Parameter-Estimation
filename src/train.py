@@ -16,7 +16,7 @@ def main():
     
     sample_rate = 44100
     num_iterations = 2000
-    LR = 0.001
+    LR = 0.01
     dtype = torch.float64   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
@@ -69,7 +69,7 @@ def main():
 
         # Step 2: Forward Pass
         if iteration == 0: print("  [diag] forward...", flush=True)
-        pred_ir = model(duration=duration, normalize=True, velCalc=False)
+        pred_ir = model(duration=duration, normalize=False, velCalc=False)
 
         # Step 3: Compute Loss
         if iteration == 0: print("  [diag] loss...", flush=True)
