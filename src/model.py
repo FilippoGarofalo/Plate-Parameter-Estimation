@@ -21,6 +21,11 @@ class DifferentiableModalPlate(nn.Module):
         self.register_buffer('tau_1', torch.tensor(1.0, dtype=dtype))
         self.register_buffer('loss_f1', torch.tensor(500.0, dtype=dtype))
 
+        # FATTORI DI SCALA FISICI
+        self.register_buffer('mu_scale', torch.tensor(3.5, dtype=dtype))
+        self.register_buffer('D_over_mu_scale', torch.tensor(3.5, dtype=dtype))
+        self.register_buffer('T0_over_mu_scale', torch.tensor(0.006, dtype=dtype))
+
         # Rayleigh damping constants
         OmDamp1 = 0.0
         OmDamp2 = 2 * np.pi * self.loss_f1
@@ -60,9 +65,9 @@ class DifferentiableModalPlate(nn.Module):
         """
         Applies mathematical bounds through differentiable tranformations
         """
-        mu = F.softplus(self.mu_raw) + 1e-4
-        D_over_mu = F.softplus(self.D_over_mu_raw) + 1e-4
-        T0_over_mu = F.softplus(self.T0_over_mu_raw) + 1e-4
+        mu = (F.softplus(self.mu_raw) * self.mu_scale) + 1e-4
+        D_over_mu = (F.softplus(self.D_over_mu_raw) * self.D_over_mu_scale) + 1e-4
+        T0_over_mu = (F.softplus(self.T0_over_mu_raw) * self.T0_over_mu_scale) + 1e-4
         
         
 

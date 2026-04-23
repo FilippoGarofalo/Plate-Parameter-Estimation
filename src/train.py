@@ -120,8 +120,8 @@ def main():
 
     print("\n=== TARGET PARAMETERS ===")
     print(f"mu         := {target_mu:.6f}")
-    print(f"D/mu       := {D_over_mu:.6f}")
-    print(f"T0/mu      := {T0_over_mu:.6f}")
+    print(f"D/mu       := {target_D_mu:.6f}")
+    print(f"T0/mu      := {target_T0_mu:.6f}")
     print(f"Ly         := {target_Ly:.4f} m")
     print(f"xo         := {target_xo:.4f} m")
     print(f"yo         := {target_yo:.4f} m")
