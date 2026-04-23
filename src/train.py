@@ -20,7 +20,7 @@ def main():
     dtype = torch.float64   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
-    target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=False)
+    target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=True)
     
     # Computes target IR duration
     duration = len(target_ir) / sample_rate
