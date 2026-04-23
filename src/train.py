@@ -15,9 +15,9 @@ def main():
     target_audio_path = "target/plate-ir-notnorm.wav" 
     
     sample_rate = 44100
-    num_iterations = 300
+    num_iterations = 5000
     LR = 0.01
-    dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
+    dtype = torch.float64   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
     target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=False)
@@ -49,7 +49,7 @@ def main():
 
     target_xo = 0.61 * Lx
     target_yo = 0.61 * Ly
-
+    target_Ly = Ly
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
@@ -116,6 +116,15 @@ def main():
     print(f"Ly         := {Ly:.4f} m")
     print(f"xo         := {xo:.4f} m")
     print(f"yo         := {yo:.4f} m")
+    print("==================================")
+
+    print("\n=== TARGET PARAMETERS ===")
+    print(f"mu         := {target_mu:.6f}")
+    print(f"D/mu       := {D_over_mu:.6f}")
+    print(f"T0/mu      := {T0_over_mu:.6f}")
+    print(f"Ly         := {target_Ly:.4f} m")
+    print(f"xo         := {target_xo:.4f} m")
+    print(f"yo         := {target_yo:.4f} m")
     print("==================================")
 
 if __name__ == "__main__":
