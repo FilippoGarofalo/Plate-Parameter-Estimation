@@ -12,7 +12,7 @@ def main():
     print(f"Using device: {device}")
     
     # Replace this with the actual path to a challenge target IR
-    target_audio_path = "target/plate-ir-notnorm.wav" 
+    target_audio_path = "target/plate-ir.wav" 
     
     sample_rate = 44100
     num_iterations = 2000
@@ -69,7 +69,7 @@ def main():
 
         # Step 2: Forward Pass
         if iteration == 0: print("  [diag] forward...", flush=True)
-        pred_ir = model(duration=duration, normalize=False, velCalc=False)
+        pred_ir = model(duration=duration, normalize=True, velCalc=False)
 
         # Step 3: Compute Loss
         if iteration == 0: print("  [diag] loss...", flush=True)
