@@ -237,7 +237,7 @@ if __name__ == '__main__':
     num_samples = 44100* 5
 
     start_time = time.time()
-    out = plate.synthesize_ir_method()
+    out = plate.synthesize_ir_method(normalize=False)
     elapsed_time = time.time() - start_time
     print(f"Computed {num_samples} samples in {elapsed_time:.2f} seconds.")
 

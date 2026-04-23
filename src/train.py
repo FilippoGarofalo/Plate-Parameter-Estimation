@@ -12,7 +12,7 @@ def main():
     print(f"Using device: {device}")
     
     # Replace this with the actual path to a challenge target IR
-    target_audio_path = "target/plate-ir.wav" 
+    target_audio_path = "target/plate-ir-notnorm.wav" 
     
     sample_rate = 44100
     num_iterations = 300
@@ -20,7 +20,7 @@ def main():
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
-    target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype)
+    target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=False)
     
     # Computes target IR duration
     duration = len(target_ir) / sample_rate

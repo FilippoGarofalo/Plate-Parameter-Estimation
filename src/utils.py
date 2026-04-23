@@ -11,7 +11,7 @@ import torch
 import torchaudio
 
 def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.device = torch.device('cpu'),
-                      dtype: torch.dtype = torch.float64) -> torch.Tensor:
+                      dtype: torch.dtype = torch.float64, normalize: bool = True) -> torch.Tensor:
     
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File non trovato: {filepath}")
@@ -27,10 +27,11 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
         waveform = resampler(waveform)
     
     waveform = waveform.squeeze(0)
-    
-    peak = torch.max(torch.abs(waveform)) + 1e-8
-    waveform = waveform / peak
-    
+
+    if normalize:
+        peak = torch.max(torch.abs(waveform)) + 1e-8
+        waveform = waveform / peak
+
     return waveform.to(device=device, dtype=dtype)
 
 
