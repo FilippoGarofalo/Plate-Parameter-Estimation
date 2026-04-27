@@ -75,10 +75,10 @@ class DifferentiableModalPlate(nn.Module):
         mu = map_range_log(self.mu_raw, 2.43, 106.15)
         
         # D/mu dominates high frequencies, so we slow it down to stop it from taking over
-        D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9, scale=0.5)
+        D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9, scale=2.0)
         
         # T0/mu has tiny gradients, so we multiply its speed by 10
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.0001, 411.52, scale=10.0)
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.0001, 411.52, scale=100.0)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
@@ -129,7 +129,7 @@ class DifferentiableModalPlate(nn.Module):
         displacement_out = torch.zeros(num_samples, device=P.device, dtype=self.dtype)
 
         # 2. Process in chunks WITH Gradient Checkpointing
-        chunk_size = 1000
+        chunk_size = 1500
         
         for i in range(0, len(valid_idx), chunk_size):
             idx_chunk = valid_idx[i:i + chunk_size]

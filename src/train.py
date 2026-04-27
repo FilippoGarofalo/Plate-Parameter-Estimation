@@ -28,7 +28,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss(energy_weight=0.01, stft_weight=5.0).to(device)
+    criterion = TimeDomainEnergyLoss(energy_weight=1.0, stft_weight=1.0).to(device)
 
     # Initialize Adam Optimizer
     # We use custom learning rates
@@ -71,6 +71,9 @@ def main():
             
             print(f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
                   f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
+            
+            grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
+            print(f"  [diag] grad norms: {grad_norms}", flush=True)
             # Iteration and loss logs
             print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
             
