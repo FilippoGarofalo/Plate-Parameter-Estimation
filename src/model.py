@@ -37,7 +37,7 @@ class DifferentiableModalPlate(nn.Module):
         self.register_buffer('beta', beta.clone().detach().to(dtype))
 
         # Fixed modal grid to prevent graph breaking (Max modes up to 10kHz)
-        M_max, N_max = 120, 120
+        M_max, N_max = 90, 90
         m_idx = torch.arange(1, M_max + 1)
         n_idx = torch.arange(1, N_max + 1)
         grid_m, grid_n = torch.meshgrid(m_idx, n_idx, indexing='ij')

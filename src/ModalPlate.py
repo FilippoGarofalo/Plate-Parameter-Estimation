@@ -237,14 +237,14 @@ if __name__ == '__main__':
     num_samples = 44100* 5
 
     start_time = time.time()
-    out = plate.synthesize_ir_method(normalize=False)
+    out = plate.synthesize_ir_method(normalize=True)
     elapsed_time = time.time() - start_time
     print(f"Computed {num_samples} samples in {elapsed_time:.2f} seconds.")
 
     print("Max Amplitude: ", np.max(np.abs(out)))
     os.makedirs('audio_output', exist_ok=True)
     try:
-        sf.write('audio_output/plate-ir.wav', out, int(plate.sample_rate))
+        sf.write('audio_output/plate-ir-normalized.wav', out, int(plate.sample_rate))
     except ImportError:
-        write('audio_output/plate-ir.wav', int(plate.sample_rate), out.astype(np.float32))
-    print("Wrote audio_output/plate-ir.wav")
+        write('audio_output/plate-ir-normalized.wav', int(plate.sample_rate), out.astype(np.float32))
+    print("Wrote audio_output/plate-ir-normalized.wav")
