@@ -39,15 +39,11 @@ class TimeDomainEnergyLoss(nn.Module):
         target_stft = torch.stft(target_audio.unsqueeze(0), n_fft=self.n_fft, hop_length=self.hop_length, 
                                  win_length=self.win_length, window=window, return_complex=True)
         
-        
         pred_mag = torch.abs(pred_stft)
         target_mag = torch.abs(target_stft)
         
-        lin_loss = F.l1_loss(pred_mag, target_mag)
-        
-        log_loss = F.l1_loss(torch.log(pred_mag + 1e-4), torch.log(target_mag + 1e-4))
-        
-        stft_loss = lin_loss + log_loss
+        stft_loss = F.l1_loss(torch.log(pred_mag + 1e-7), torch.log(target_mag + 1e-7))
+ 
         total_loss = (self.mse_weight * mse_loss) + (self.stft_weight * stft_loss) + (self.energy_weight * energy_loss)
         
         return total_loss
