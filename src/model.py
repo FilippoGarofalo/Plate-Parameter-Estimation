@@ -62,19 +62,23 @@ class DifferentiableModalPlate(nn.Module):
             self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=dtype))
 
     def get_physical_parameters(self):
-        def map_range_linear(x, min_v, max_v):
-            return min_v + (max_v - min_v) * ((torch.tanh(x) + 1.0) / 2.0)
+        def map_range_linear(x, min_v, max_v, scale=1.0):
+            return min_v + (max_v - min_v) * ((torch.tanh(x * scale) + 1.0) / 2.0)
 
-        def map_range_log(x, min_v, max_v):
-            norm_x = (torch.tanh(x) + 1.0) / 2.0
+        def map_range_log(x, min_v, max_v, scale=1.0):
+            norm_x = (torch.tanh(x * scale) + 1.0) / 2.0
             log_min = np.log10(min_v)
             log_max = np.log10(max_v)
             log_val = log_min + (log_max - log_min) * norm_x
             return 10.0 ** log_val
 
         mu = map_range_log(self.mu_raw, 2.43, 106.15)
-        D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9)
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.0001, 411.52)
+        
+        # D/mu dominates high frequencies, so we slow it down to stop it from taking over
+        D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9, scale=0.5)
+        
+        # T0/mu has tiny gradients, so we multiply its speed by 10
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.0001, 411.52, scale=10.0)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)

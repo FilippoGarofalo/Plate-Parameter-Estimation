@@ -1,6 +1,5 @@
 import torch
 import time
-from torch.utils.checkpoint import checkpoint
 from model import DifferentiableModalPlate
 from loss import TimeDomainEnergyLoss
 from utils import load_target_audio, load_challenge_npz
@@ -15,9 +14,9 @@ def main():
     #target_audio_path = "target/plate-ir.wav" 
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
-    num_iterations = 2000
+    num_iterations = 1000
     LR = 0.01
-    dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
+    dtype = torch.float64   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
     #target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=True)
@@ -31,7 +30,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss(energy_weight=0.1, stft_weight=1.0).to(device)
+    criterion = TimeDomainEnergyLoss(energy_weight=0.01, stft_weight=1.0).to(device)
 
     # Initialize Adam Optimizer
     # We use custom learning rates
