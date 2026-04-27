@@ -17,7 +17,7 @@ def main():
     sample_rate = 44100
     num_iterations = 2000
     LR = 0.01
-    dtype = torch.float64   # switch to torch.float32 to halve memory and speed up at slight precision cost
+    dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
     #target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=True)
