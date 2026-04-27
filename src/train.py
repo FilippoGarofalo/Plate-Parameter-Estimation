@@ -12,7 +12,7 @@ def main():
     
     # Replace this with the actual path to a challenge target IR
     #target_audio_path = "target/plate-ir.wav" 
-    target_npz_path = "target/ground_truth_test.npz"
+    target_npz_path = "target/ground_truth_test-normalized.npz"
     sample_rate = 44100
     num_iterations = 1000
     LR = 0.01
