@@ -12,7 +12,7 @@ def main():
     
     # Replace this with the actual path to a challenge target IR
     #target_audio_path = "target/plate-ir.wav" 
-    target_npz_path = "target/ground_truth_test_normalized.npz"
+    target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 1000
     LR = 0.01
@@ -28,7 +28,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss().to(device)
+    criterion = TimeDomainEnergyLoss(mse_weight=1.0).to(device)
 
     # Initialize Adam Optimizer
     # We use custom learning rates
@@ -44,7 +44,7 @@ def main():
 
         # Step 2: Forward Pass
         if iteration == 0: print("  [diag] forward...", flush=True)
-        pred_ir = model(duration=duration, normalize=True, velCalc=False)
+        pred_ir = model(duration=duration, normalize=False, velCalc=False)
 
         # Step 3: Compute Loss
         if iteration == 0: print("  [diag] loss...", flush=True)
