@@ -130,7 +130,7 @@ class DifferentiableModalPlate(nn.Module):
         displacement_out = torch.zeros(num_samples, device=P.device, dtype=self.dtype)
 
         # 2. Process in chunks WITH Gradient Checkpointing
-        chunk_size = 1000  
+        chunk_size = 500
         
         for i in range(0, len(valid_idx), chunk_size):
             idx_chunk = valid_idx[i:i + chunk_size]

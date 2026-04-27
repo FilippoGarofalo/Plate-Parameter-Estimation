@@ -16,7 +16,7 @@ def main():
     sample_rate = 44100
     num_iterations = 1000
     LR = 0.01
-    dtype = torch.float64   # switch to torch.float32 to halve memory and speed up at slight precision cost
+    dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
     #target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=True)
@@ -25,8 +25,6 @@ def main():
     # Computes target IR duration
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
-
-    sample_rate = 44100
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
