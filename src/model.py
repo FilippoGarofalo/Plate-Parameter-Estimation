@@ -76,7 +76,7 @@ class DifferentiableModalPlate(nn.Module):
         
         D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9)
         
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.0001, 411.52)
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.0001, 411.52, scale=10.0)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
