@@ -82,7 +82,7 @@ class DifferentiableModalPlate(nn.Module):
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
-    def compute_chunk(w, s, p, n):
+    def compute_chunk(self, w, s, p, n):
             decay = torch.exp(-s * (n - 1) * self.k)
             sin_n = torch.sin(n * w * self.k)
             sin_d = torch.sin(w * self.k) + 1e-8
@@ -135,8 +135,8 @@ class DifferentiableModalPlate(nn.Module):
             s_c = sigma[idx_chunk].unsqueeze(1)
             p_c = P[idx_chunk].unsqueeze(1)
             
-
-            chunk_out = checkpoint(compute_chunk, w_c, s_c, p_c, n_row, use_reentrant=False)
+            # Call the method using self.compute_chunk
+            chunk_out = checkpoint(self.compute_chunk, w_c, s_c, p_c, n_row, use_reentrant=False)
             
             # Accumulate (using + instead of += is safer for Autograd graph)
             displacement_out = displacement_out + chunk_out    
