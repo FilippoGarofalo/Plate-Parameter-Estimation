@@ -74,10 +74,8 @@ class DifferentiableModalPlate(nn.Module):
 
         mu = map_range_log(self.mu_raw, 2.43, 106.15)
         
-        # D/mu dominates high frequencies, so we slow it down to stop it from taking over
         D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9)
         
-        # T0/mu has tiny gradients, so we multiply its speed by 10
         T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.0001, 411.52, scale=100.0)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
