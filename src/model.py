@@ -117,7 +117,7 @@ class DifferentiableModalPlate(nn.Module):
         
         # Create a (1, T) row vector for the time indices
         n_row = torch.arange(num_samples, device=P.device, dtype=self.dtype).unsqueeze(0)
-        
+        '''
         # Continuous evaluation of the biquad
         decay_env = torch.exp(-s_c * (n_row - 1) * self.k)
         sine_num  = torch.sin(n_row * w_c * self.k)
@@ -128,7 +128,24 @@ class DifferentiableModalPlate(nn.Module):
         
         # Sum down the mode dimension to squash it into the 1D audio signal
         displacement_out = torch.sum(mode_waveforms, dim=0)
+        '''
+        
+        displacement_out = torch.zeros(num_samples, device=P.device, dtype=self.dtype)
+        num_samples = int(self.sample_rate * duration)
+        chunk_size = 512  # o 256 / 1024 → da testare
 
+        for i in range(0, w_c.shape[0], chunk_size):
+            w_chunk = w_c[i:i+chunk_size]
+            s_chunk = s_c[i:i+chunk_size]
+            p_chunk = p_c[i:i+chunk_size]
+
+            decay_env = torch.exp(-s_chunk * (n_row - 1) * self.k)
+            sine_num  = torch.sin(n_row * w_chunk * self.k)
+            sine_den  = torch.sin(w_chunk * self.k) + 1e-8
+
+            mode_waveforms = p_chunk * decay_env * (sine_num / sine_den)
+
+            displacement_out += torch.sum(mode_waveforms, dim=0)
         # 3. Handle Velocity vs Displacement 
         if velCalc:
             y_prev_tensor = torch.cat([torch.tensor([0.0], device=P.device, dtype=self.dtype), displacement_out[:-1]])
