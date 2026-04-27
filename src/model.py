@@ -1,4 +1,5 @@
 import torch
+from torch.utils.checkpoint import checkpoint
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -81,6 +82,13 @@ class DifferentiableModalPlate(nn.Module):
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
+    def compute_chunk(w, s, p, n):
+            decay = torch.exp(-s * (n - 1) * self.k)
+            sin_n = torch.sin(n * w * self.k)
+            sin_d = torch.sin(w * self.k) + 1e-8
+            mode_waves = p * decay * (sin_n / sin_d)
+            return torch.sum(mode_waves, dim=0)
+    
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
@@ -108,27 +116,30 @@ class DifferentiableModalPlate(nn.Module):
         # 1. Find only the valid indices (20Hz to 10kHz)
         valid_idx = torch.where((omega <= self.maxOm) & (omega >= (20 * 2 * np.pi)))[0]
         
-        # 2. Extract valid parameters and unsqueeze to create (N, 1) column vectors
-        w_c = omega[valid_idx].unsqueeze(1)
-        s_c = sigma[valid_idx].unsqueeze(1)
-        p_c = P[valid_idx].unsqueeze(1)
-        
         num_samples = int(self.sample_rate * duration)
         
         # Create a (1, T) row vector for the time indices
         n_row = torch.arange(num_samples, device=P.device, dtype=self.dtype).unsqueeze(0)
         
-        decay_env = torch.exp(-s_c * (n_row - 1) * self.k)
-        sine_num  = torch.sin(n_row * w_c * self.k)
-        sine_den  = torch.sin(w_c * self.k) + 1e-8
-        
-        # This creates the large intermediate matrix: (num_valid_modes, num_samples)
-        mode_waveforms = p_c * decay_env * (sine_num / sine_den)
-        
-        # Sum down the mode dimension to squash it into the 1D audio signal
-        displacement_out = torch.sum(mode_waveforms, dim=0)
+        # Initialize accumulator
+        displacement_out = torch.zeros(num_samples, device=P.device, dtype=self.dtype)
 
+        # 2. Process in chunks WITH Gradient Checkpointing
+        chunk_size = 250  
         
+        for i in range(0, len(valid_idx), chunk_size):
+            idx_chunk = valid_idx[i:i + chunk_size]
+            
+            # Extract parameters for this chunk
+            w_c = omega[idx_chunk].unsqueeze(1)
+            s_c = sigma[idx_chunk].unsqueeze(1)
+            p_c = P[idx_chunk].unsqueeze(1)
+            
+
+            chunk_out = checkpoint(compute_chunk, w_c, s_c, p_c, n_row, use_reentrant=False)
+            
+            # Accumulate (using + instead of += is safer for Autograd graph)
+            displacement_out = displacement_out + chunk_out    
     
         # 3. Handle Velocity vs Displacement 
         if velCalc:
