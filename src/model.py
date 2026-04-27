@@ -118,8 +118,9 @@ class DifferentiableModalPlate(nn.Module):
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms)
         
         # 1. Find only the valid indices (20Hz to 10kHz)
-        valid_idx = torch.where((omega <= self.maxOm) & (omega >= (20 * 2 * np.pi)))[0]
+        #valid_idx = torch.where((omega <= self.maxOm) & (omega >= (20 * 2 * np.pi)))[0]
         
+        valid_idx = torch.where(omega <= self.maxOm)
         num_samples = int(self.sample_rate * duration)
         
         # Create a (1, T) row vector for the time indices
@@ -129,7 +130,7 @@ class DifferentiableModalPlate(nn.Module):
         displacement_out = torch.zeros(num_samples, device=P.device, dtype=self.dtype)
 
         # 2. Process in chunks WITH Gradient Checkpointing
-        chunk_size = 250  
+        chunk_size = 1000  
         
         for i in range(0, len(valid_idx), chunk_size):
             idx_chunk = valid_idx[i:i + chunk_size]
