@@ -13,9 +13,9 @@ class TimeDomainEnergyLoss(nn.Module):
         self.energy_weight = energy_weight
 
         # STFT parameters
-        self.n_fft = 8192
-        self.hop_length = 2048
-        self.win_length = 8192
+        self.n_fft = 2048
+        self.hop_length = 512
+        self.win_length = 2048
 
     def forward(self, pred_audio: torch.Tensor, target_audio: torch.Tensor) -> torch.Tensor:
         pred_audio = pred_audio.squeeze()
