@@ -55,6 +55,8 @@ class TimeDomainEnergyLoss(nn.Module):
         
         stft_loss = F.l1_loss(torch.log(pred_mag + 1e-7), torch.log(target_mag + 1e-7))
  
+        total_loss = (self.mse_weight * mse_loss) + (self.stft_weight * stft_loss) + (self.energy_weight * energy_loss)
+
         # Low-pass MSE (guides T0/mu)
         pred_low = self._lowpass(pred_audio)
         target_low = self._lowpass(target_audio)
