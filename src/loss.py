@@ -11,6 +11,7 @@ class TimeDomainEnergyLoss(nn.Module):
         self.mse_weight = mse_weight
         self.stft_weight = stft_weight
         self.energy_weight = energy_weight
+        self.lowpass_weight = lowpass_weight
 
         # STFT parameters
         self.n_fft = 2048
