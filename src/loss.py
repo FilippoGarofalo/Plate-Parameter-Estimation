@@ -6,12 +6,12 @@ class TimeDomainEnergyLoss(nn.Module):
     """
     Computes a combined Relative Time-Domain MSE and Log-Magnitude STFT Loss.
     """
-    def __init__(self, mse_weight: float = 1.0, stft_weight: float = 1.0, energy_weight: float = 1.0,lowpass_weight=5.0, cutoff_hz=1000, sr=44100):
+    def __init__(self, mse_weight: float = 1.0, stft_weight: float = 1.0, energy_weight: float = 1.0):
         super(TimeDomainEnergyLoss, self).__init__()
         self.mse_weight = mse_weight
         self.stft_weight = stft_weight
         self.energy_weight = energy_weight
-        self.lowpass_weight = lowpass_weight
+        #self.lowpass_weight = lowpass_weight
 
         # STFT parameters
         self.n_fft = 2048
@@ -19,8 +19,8 @@ class TimeDomainEnergyLoss(nn.Module):
         self.win_length = 2048
 
         # Low-pass filter via FFT: pre-compute the mask
-        self.cutoff_hz = cutoff_hz
-        self.sr = sr
+        #self.cutoff_hz = cutoff_hz
+        #self.sr = sr
 
     def _lowpass(self, x):
         N = x.shape[-1]
@@ -59,10 +59,10 @@ class TimeDomainEnergyLoss(nn.Module):
         total_loss = (self.mse_weight * mse_loss) + (self.stft_weight * stft_loss) + (self.energy_weight * energy_loss)
 
         # Low-pass MSE (guides T0/mu)
-        pred_low = self._lowpass(pred_audio)
-        target_low = self._lowpass(target_audio)
-        lowpass_loss = F.mse_loss(pred_low, target_low)
+        # pred_low = self._lowpass(pred_audio)
+        # target_low = self._lowpass(target_audio)
+        #lowpass_loss = F.mse_loss(pred_low, target_low)
 
-        total_loss = total_loss + self.lowpass_weight * lowpass_loss
+        #total_loss = total_loss + self.lowpass_weight * lowpass_loss
 
         return total_loss
