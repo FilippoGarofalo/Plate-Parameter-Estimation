@@ -15,7 +15,7 @@ def main():
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 1000
-    LR = 0.0001
+    LR = 0.001
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
