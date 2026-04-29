@@ -15,7 +15,7 @@ def main():
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 1000
-    LR = 0.01
+    LR = 0.005
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
@@ -28,12 +28,12 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss(mse_weight=1.0, stft_weight=20.0, energy_weight=1.0).to(device)
+    criterion = TimeDomainEnergyLoss(mse_weight=1.0, stft_weight=15.0, energy_weight=1.0).to(device)
 
     # Initialize Adam Optimizer
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_iterations, eta_min=1e-4)
+
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -61,7 +61,7 @@ def main():
 
         # Step 5: Update Parameters
         optimizer.step()
-        scheduler.step()
+ 
 
         # Step 6: Print the updated parameters (look ups for starting values in model.py)
         if iteration % 25 == 0 or iteration == num_iterations - 1:
