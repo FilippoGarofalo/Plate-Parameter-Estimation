@@ -16,7 +16,6 @@ def main():
     sample_rate = 44100
     num_iterations = 1000
     LR = 0.01
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_iterations, eta_min=1e-4)
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
@@ -34,6 +33,7 @@ def main():
     # Initialize Adam Optimizer
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_iterations, eta_min=1e-4)
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
