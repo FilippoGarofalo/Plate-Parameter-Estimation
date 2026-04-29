@@ -6,14 +6,14 @@ class TimeDomainEnergyLoss(nn.Module):
     """
     Computes a combined Relative Time-Domain MSE and Log-Magnitude STFT Loss.
     """
-    def __init__(self, mse_weight: float = 1.0, stft_weight: float = 1.0, energy_weight: float = 1.0, lowpass_weight: float = 1.0, cutoff_hz: float = 200.0, sr: int = 44100):
+    def __init__(self, mse_weight: float = 1.0, stft_weight: float = 1.0, energy_weight: float = 1.0):
         super(TimeDomainEnergyLoss, self).__init__()
         self.mse_weight = mse_weight
         self.stft_weight = stft_weight
         self.energy_weight = energy_weight
-        self.lowpass_weight = lowpass_weight
-        self.cutoff_hz = cutoff_hz
-        self.sr = sr
+        #self.lowpass_weight = lowpass_weight
+        #self.cutoff_hz = cutoff_hz
+        #self.sr = sr
 
         # STFT parameters
         self.n_fft = 2048
@@ -61,11 +61,11 @@ class TimeDomainEnergyLoss(nn.Module):
         total_loss = (self.mse_weight * mse_loss) + (self.stft_weight * stft_loss) + (self.energy_weight * energy_loss)
 
         # Low-pass MSE (guides T0/mu)
-        pred_low = self._lowpass(pred_audio)
-        target_low = self._lowpass(target_audio)
-        target_low_var = torch.mean(target_low ** 2) + 1e-8
-        lowpass_loss = F.mse_loss(pred_low, target_low) / target_low_var
+        #pred_low = self._lowpass(pred_audio)
+        #target_low = self._lowpass(target_audio)
+        #target_low_var = torch.mean(target_low ** 2) + 1e-8
+        #lowpass_loss = F.mse_loss(pred_low, target_low) / target_low_var
 
-        total_loss = total_loss + self.lowpass_weight * lowpass_loss
+        #total_loss = total_loss + self.lowpass_weight * lowpass_loss
 
         return total_loss
