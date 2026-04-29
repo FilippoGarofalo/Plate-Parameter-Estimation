@@ -16,6 +16,7 @@ def main():
     sample_rate = 44100
     num_iterations = 1000
     LR = 0.01
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_iterations, eta_min=1e-4)
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
@@ -60,6 +61,7 @@ def main():
 
         # Step 5: Update Parameters
         optimizer.step()
+        scheduler.step()
 
         # Step 6: Print the updated parameters (look ups for starting values in model.py)
         if iteration % 25 == 0 or iteration == num_iterations - 1:
@@ -73,7 +75,7 @@ def main():
                   f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
             
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
-            print(f"  [diag] grad norms: {grad_norms}", flush=True)
+            #print(f"  [diag] grad norms: {grad_norms}", flush=True)
             # Iteration and loss logs
             print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
             
