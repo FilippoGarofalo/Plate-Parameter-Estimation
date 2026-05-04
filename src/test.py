@@ -44,8 +44,8 @@ custom_params = {
 
 perfect_initial_guess = {
     'mu_raw':         inverse_map_range_log(target_mu, 2.43, 106.15),
-    'D_over_mu_raw':  inverse_map_range_log(target_D_mu, 0.05, 1005.9),
-    'T0_over_mu_raw': inverse_map_range_log(target_T0_mu, 0.1, 411.52),
+    'D_over_mu_raw':  inverse_map_range_log(target_D_mu, 0.2805, 201.188),
+    'T0_over_mu_raw': inverse_map_range_log(target_T0_mu, 0.000094, 411.52),
 
     'Ly_raw': inverse_map_range_linear(Ly,        1.1,       4.0),
     'xo_raw': inverse_map_range_linear(target_xo, 0.51 * Lx, 1.0 * Lx),

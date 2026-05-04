@@ -18,6 +18,22 @@ def main():
     LR = 0.001
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
+    Lx = 1.0          
+    Ly = 2.25         
+    h = 0.0025
+    T0 = 450.0
+    rho = 7850.0
+    E = 20.0e10
+    nu = 0.25
+
+    target_mu = rho * h
+    target_D = (E * h**3) / (12 * (1 - nu**2))
+    target_D_mu = target_D / target_mu
+    target_T0_mu = T0 / target_mu
+
+    target_xo = 0.75 * Lx  
+    target_yo = 0.82 * Ly  
+    
     # Load the target audio
     #target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=True)
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -28,7 +44,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss(mse_weight=1.0, stft_weight=20.0, energy_weight=1.0).to(device)
+    criterion = TimeDomainEnergyLoss(mse_weight=1.0, stft_weight=5.0, energy_weight=0.1).to(device)
 
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
@@ -68,7 +84,7 @@ def main():
  
 
         # Step 6: Print the updated parameters (look ups for starting values in model.py)
-        if iteration % 25 == 0 or iteration == num_iterations - 1:
+        if iteration % 10 == 0 or iteration == num_iterations - 1:
             
             # Safely extract the current bounded physical values
             mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
@@ -82,8 +98,17 @@ def main():
             #print(f"  [diag] grad norms: {grad_norms}", flush=True)
             # Iteration and loss logs
             print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
-            
 
+            print("-" * 60)
+            h, E, T0 = utils.invert_composite_parameters(mu, D_over_mu, T0_over_mu, rho, nu)
+            print(f"  -> Estimated Thickness (h): {h*1e3:.4f} mm")
+            print(f"  -> Estimated Young's Modulus (E): {E/1e9:.2f} GPa")
+            print(f"  -> Estimated Tension (T0): {T0:.2f} N/m")
+            print("-" * 60)
+            print(f"  -> Estimated Ly: {Ly*1e3:.4f} mm")
+            print(f"  -> Estimated xo: {xo*1e3:.4f} mm")
+            print(f"  -> Estimated yo: {yo*1e3:.4f} mm")
+            print("-" * 60)
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")
 

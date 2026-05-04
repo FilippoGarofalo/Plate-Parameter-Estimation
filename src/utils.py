@@ -84,3 +84,36 @@ def inverse_map_range_log(y, min_v, max_v, scale=1.0):
     x_raw = np.arctanh(norm_y_mapped) / scale
     
     return float(x_raw)
+
+
+def invert_composite_parameters(mu: float, D_over_mu: float, T0_over_mu: float, rho: float, nu: float = 0.25):
+    """
+    Converts the composite parameters learned by the model back to physical properties.
+    
+    Args:
+        mu (float): Area mass density (learned)
+        D_over_mu (float): Bending stiffness to mass ratio (learned)
+        T0_over_mu (float): Tension to mass ratio (learned)
+        rho (float): Assumed material volume density (kg/m^3)
+        nu (float): Poisson's ratio (fixed, default 0.25)
+        
+    Returns:
+        tuple: (h, E, T0) 
+               h  = plate thickness (m)
+               E  = Young's Modulus (Pa)
+               T0 = Applied tension (N/m)
+    """
+    
+    # 1. Recover thickness (h)
+    h = mu / rho
+    
+    # 2. Recover absolute Tension (T0)
+    T0 = T0_over_mu * mu
+    
+    # 3. Recover absolute Bending Stiffness (D)
+    D = D_over_mu * mu
+    
+    # 4. Recover Young's Modulus (E)
+    E = (D * 12 * (1 - nu**2)) / (h**3)
+    
+    return h, E, T0
