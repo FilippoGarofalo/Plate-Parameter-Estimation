@@ -28,7 +28,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss(mse_weight=5.0, stft_weight=20.0, energy_weight=1.0).to(device)
+    criterion = TimeDomainEnergyLoss(mse_weight=1.0, stft_weight=20.0, energy_weight=1.0).to(device)
 
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
