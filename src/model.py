@@ -72,9 +72,9 @@ class DifferentiableModalPlate(nn.Module):
             log_val = log_min + (log_max - log_min) * norm_x
             return 10.0 ** log_val
 
-        mu = map_range_log(self.mu_raw, 2.43, 106.15)
+        mu = map_range_log(self.mu_raw, 2.43, 106.15, scale=0.1)
         
-        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188)
+        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188, scale=0.1)
         
         T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52, scale=0.1)
 

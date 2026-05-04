@@ -2,7 +2,7 @@ import torch
 import time
 from model import DifferentiableModalPlate
 from loss import TimeDomainEnergyLoss
-from utils import load_target_audio, load_challenge_npz
+from utils import load_challenge_npz, invert_composite_parameters
 from optimizer import get_optimizer
 
 def main():
@@ -100,7 +100,7 @@ def main():
             print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
 
             print("-" * 60)
-            h, E, T0 = utils.invert_composite_parameters(mu, D_over_mu, T0_over_mu, rho, nu)
+            h, E, T0 = invert_composite_parameters(mu, D_over_mu, T0_over_mu, rho, nu)
             print(f"  -> Estimated Thickness (h): {h*1e3:.4f} mm")
             print(f"  -> Estimated Young's Modulus (E): {E/1e9:.2f} GPa")
             print(f"  -> Estimated Tension (T0): {T0:.2f} N/m")
