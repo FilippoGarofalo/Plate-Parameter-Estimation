@@ -14,8 +14,8 @@ def main():
     #target_audio_path = "target/plate-ir.wav" 
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
-    num_iterations = 2000
-    LR = 0.001
+    num_iterations = 500
+    LR = 0.01
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     # Load the target audio
