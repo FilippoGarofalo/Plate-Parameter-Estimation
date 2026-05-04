@@ -14,7 +14,7 @@ def main():
     #target_audio_path = "target/plate-ir.wav" 
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
-    num_iterations = 500
+    num_iterations = 1000
     LR = 0.01
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
@@ -32,6 +32,8 @@ def main():
 
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50)
 
 
     # 3. OPTIMIZATION LOOP
@@ -60,6 +62,9 @@ def main():
 
         # Step 5: Update Parameters
         optimizer.step()
+
+        # Step 6: Reduce lr when loss plateaus
+        scheduler.step(loss.item())
  
 
         # Step 6: Print the updated parameters (look ups for starting values in model.py)
