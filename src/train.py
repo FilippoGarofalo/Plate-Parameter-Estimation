@@ -15,7 +15,7 @@ def main():
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 2000
-    LR = 0.001
+    LR = 0.01
     dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
 
     Lx = 1.0          
@@ -44,7 +44,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss(mse_weight=1.0, stft_weight=5.0, energy_weight=0.1).to(device)
+    criterion = TimeDomainEnergyLoss().to(device)
 
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
@@ -63,6 +63,17 @@ def main():
         # Step 2: Forward Pass
         if iteration == 0: print("  [diag] forward...", flush=True)
         pred_ir = model(duration=duration, normalize=False, velCalc=False)
+        
+        if iteration < 150:
+            criterion.mse_weight = 0.0
+            criterion.stft_weight = 0.0
+            criterion.lowpass_weight = 50.0 
+            criterion.energy_weight = 0.1
+        elif iteration < 500:
+            criterion.mse_weight = 0.0
+            criterion.stft_weight = 20.0
+            criterion.lowpass_weight = 5.0
+            criterion.energy_weight = 1.0
 
         # Step 3: Compute Loss
         if iteration == 0: print("  [diag] loss...", flush=True)
@@ -101,13 +112,13 @@ def main():
 
             print("-" * 60)
             h, E, T0 = invert_composite_parameters(mu, D_over_mu, T0_over_mu, rho, nu)
-            print(f"  -> Estimated Thickness (h): {h*1e3:.4f} mm")
-            print(f"  -> Estimated Young's Modulus (E): {E/1e9:.2f} GPa")
+            print(f"  -> Estimated Thickness (h): {h:.4f} mm")
+            print(f"  -> Estimated Young's Modulus (E): {E*1e-9:.2f} GPa")
             print(f"  -> Estimated Tension (T0): {T0:.2f} N/m")
             print("-" * 60)
-            print(f"  -> Estimated Ly: {Ly*1e3:.4f} mm")
-            print(f"  -> Estimated xo: {xo*1e3:.4f} mm")
-            print(f"  -> Estimated yo: {yo*1e3:.4f} mm")
+            print(f"  -> Estimated Ly: {Ly:.4f} mm")
+            print(f"  -> Estimated xo: {xo:.4f} mm")
+            print(f"  -> Estimated yo: {yo:.4f} mm")
             print("-" * 60)
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")

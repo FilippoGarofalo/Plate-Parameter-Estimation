@@ -6,30 +6,24 @@ class TimeDomainEnergyLoss(nn.Module):
     """
     Computes a combined Relative Time-Domain MSE and Log-Magnitude STFT Loss.
     """
-    def __init__(self, mse_weight: float = 1.0, stft_weight: float = 1.0, energy_weight: float = 1.0):
+    def __init__(self, mse_weight: float = 0.0, stft_weight: float = 1.0, 
+                 energy_weight: float = 1.0, lowpass_weight: float = 10.0, 
+                 cutoff_hz: float = 200.0, sr: float = 44100):
         super(TimeDomainEnergyLoss, self).__init__()
         self.mse_weight = mse_weight
         self.stft_weight = stft_weight
         self.energy_weight = energy_weight
-        #self.lowpass_weight = lowpass_weight
-        #self.cutoff_hz = cutoff_hz
-        #self.sr = sr
+        self.lowpass_weight = lowpass_weight
+        self.cutoff_hz = cutoff_hz
+        self.sr = sr
 
         # STFT parameters
         self.n_fft = 2048
         self.hop_length = 512
         self.win_length = 2048
 
-        # Low-pass filter via FFT: pre-compute the mask
-        #self.cutoff_hz = cutoff_hz
-        #self.sr = sr
+        
 
-    def _lowpass(self, x):
-        N = x.shape[-1]
-        X = torch.fft.rfft(x)
-        freqs = torch.fft.rfftfreq(N, d=1.0 / self.sr).to(x.device)
-        mask = (freqs <= self.cutoff_hz).float()
-        return torch.fft.irfft(X * mask, n=N)
 
     def forward(self, pred_audio: torch.Tensor, target_audio: torch.Tensor) -> torch.Tensor:
         pred_audio = pred_audio.squeeze()
@@ -58,14 +52,29 @@ class TimeDomainEnergyLoss(nn.Module):
         
         stft_loss = F.l1_loss(torch.log(pred_mag + 1e-7), torch.log(target_mag + 1e-7))
  
-        total_loss = (self.mse_weight * mse_loss) + (self.stft_weight * stft_loss) + (self.energy_weight * energy_loss)
+        N = pred_audio.shape[-1]
+        freqs = torch.fft.rfftfreq(N, d=1.0 / self.sr).to(pred_audio.device)
+        
+        # Create a boolean mask for bins under the cutoff frequency
+        valid_bins = freqs <= self.cutoff_hz
+        
+        # Compute full-signal FFT
+        pred_fft = torch.fft.rfft(pred_audio)
+        target_fft = torch.fft.rfft(target_audio)
+        
+        # Extract magnitude of only the low-frequency bins
+        pred_mag_low = torch.abs(pred_fft)[valid_bins]
+        target_mag_low = torch.abs(target_fft)[valid_bins]
+        
+        # L1 Loss on Log-Magnitude (Phase-blind, exactly like STFT but with 0.2Hz resolution)
+        lowpass_loss = F.l1_loss(torch.log(pred_mag_low + 1e-7), torch.log(target_mag_low + 1e-7))
 
-        # Low-pass MSE (guides T0/mu)
-        #pred_low = self._lowpass(pred_audio)
-        #target_low = self._lowpass(target_audio)
-        #target_low_var = torch.mean(target_low ** 2) + 1e-8
-        #lowpass_loss = F.mse_loss(pred_low, target_low) / target_low_var
+        # --- Final Compilation ---
+        total_loss = (self.mse_weight * mse_loss) + \
+                     (self.stft_weight * stft_loss) + \
+                     (self.energy_weight * energy_loss) + \
+                     (self.lowpass_weight * lowpass_loss)
 
-        #total_loss = total_loss + self.lowpass_weight * lowpass_loss
+        return total_loss
 
         return total_loss
