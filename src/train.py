@@ -28,12 +28,12 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss(mse_weight=1.0, stft_weight=20.0, energy_weight=1.0).to(device)
+    criterion = TimeDomainEnergyLoss(mse_weight=0.0, stft_weight=20.0, energy_weight=0.0).to(device)
 
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=200)
+    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=200)
 
 
     # 3. OPTIMIZATION LOOP
@@ -64,7 +64,7 @@ def main():
         optimizer.step()
 
         # Step 6: Reduce lr when loss plateaus
-        scheduler.step(loss.item())
+        #scheduler.step(loss.item())
  
 
         # Step 6: Print the updated parameters (look ups for starting values in model.py)
