@@ -3,55 +3,68 @@ import numpy as np
 import matplotlib.pyplot as plt
 from model import DifferentiableModalPlate
 from ModalPlate import ModalPlate
-from utils import inverse_tanh, inverse_softplus
-
-import importlib.util
-import sys
+from utils import inverse_map_range_linear, inverse_map_range_log
 
 sample_rate = 44100
 duration = 1.0
-# ---------------------------------------------------------
-# A. Define the raw physical properties from ModalPlate.py
-# ---------------------------------------------------------
-Lx = 0.5
-Ly = 1.1
-h = 0.001
-T0 = 0.01
-rho = 2430.0
-E = 6.7e10
+
+Lx = 1.0          
+Ly = 2.25         
+h = 0.0025
+T0 = 450.0
+rho = 7850.0
+E = 20.0e10
 nu = 0.25
 
-# ---------------------------------------------------------
-# B. Calculate the exact physical targets
-# ---------------------------------------------------------
 target_mu = rho * h
 target_D = (E * h**3) / (12 * (1 - nu**2))
-
 target_D_mu = target_D / target_mu
 target_T0_mu = T0 / target_mu
 
-target_xo = 0.61 * Lx
-target_yo = 0.61 * Ly
+target_xo = 0.75 * Lx  
+target_yo = 0.82 * Ly  
 
-# ---------------------------------------------------------
-# C. Programmatically generate the raw PyTorch parameters
-# ---------------------------------------------------------
+
+custom_params = {
+    'Lx': Lx,
+    'Ly': Ly,
+    'h': h,
+    'T0': T0,
+    'rho': rho,
+    'E': E,
+    'nu': nu,
+    'T60_DC': 6.0,
+    'T60_F1': 2.0,       
+    'loss_F1': 500.0,
+    'fp_x': 0.335,       
+    'fp_y': 0.467,       
+    'op_x': target_xo / Lx,
+    'op_y': target_yo / Ly
+}
+
+
 perfect_initial_guess = {
-    'mu_raw':         inverse_softplus(target_mu    - 1e-4),
-    'D_over_mu_raw':  inverse_softplus(target_D_mu  - 1e-4),
-    'T0_over_mu_raw': inverse_softplus(target_T0_mu - 1e-4),
+    'mu_raw':         inverse_map_range_log(target_mu, 2.43, 106.15),
+    'D_over_mu_raw':  inverse_map_range_log(target_D_mu, 0.05, 1005.9),
+    'T0_over_mu_raw': inverse_map_range_log(target_T0_mu, 0.0001, 411.52),
 
-    'Ly_raw': inverse_tanh(Ly,        1.1,       4.0),
-    'xo_raw': inverse_tanh(target_xo, 0.49 * Lx, 1.0 * Lx),
-    'yo_raw': inverse_tanh(target_yo, 0.51 * Ly, 1.0 * Ly),
+    'Ly_raw': inverse_map_range_linear(Ly,        1.1,       4.0),
+    'xo_raw': inverse_map_range_linear(target_xo, 0.51 * Lx, 1.0 * Lx),
+    'yo_raw': inverse_map_range_linear(target_yo, 0.51 * Ly, 1.0 * Ly),
 }
 
 def get_ir():
-    np_plate = ModalPlate(sample_rate=sample_rate);
-    target_ir = np_plate.synthesize_ir_method(duration=duration, velCalc=False, normalize=True);
-    torch_plate = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess);
-    test_ir = torch_plate.forward(normalize=True, velCalc=False);
-    test_ir = test_ir.detach().numpy();
+    np_plate = ModalPlate(sample_rate=sample_rate, plate_params=custom_params)
+    
+    np_plate.fmax = 20000.0  
+    np_plate.setup() 
+    
+    target_ir = np_plate.synthesize_ir_method(duration=duration, velCalc=False, normalize=True)
+    
+    torch_plate = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess)
+    test_ir = torch_plate.forward(normalize=True, velCalc=False)
+    test_ir = test_ir.detach().numpy()
+    
     return target_ir, test_ir
 
 def cumulative_energy(ir: np.ndarray) -> np.ndarray:

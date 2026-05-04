@@ -54,3 +54,33 @@ def inverse_tanh(y, min_val, max_val):
     norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
     
     return float(0.5 * np.log((1 + norm_y_mapped) / (1 - norm_y_mapped)))
+
+import numpy as np
+
+def inverse_map_range_linear(y, min_v, max_v, scale=1.0):
+    """Inverse function for map_range_linear"""
+    norm_y = (y - min_v) / (max_v - min_v)
+    
+    norm_y_mapped = 2.0 * norm_y - 1.0
+    
+    norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
+    
+    x_raw = np.arctanh(norm_y_mapped) / scale
+    
+    return float(x_raw)
+
+def inverse_map_range_log(y, min_v, max_v, scale=1.0):
+    """Inverse function for map_range_log"""
+    log_y = np.log10(y)
+    log_min = np.log10(min_v)
+    log_max = np.log10(max_v)
+    
+    norm_y = (log_y - log_min) / (log_max - log_min)
+    
+    norm_y_mapped = 2.0 * norm_y - 1.0
+    
+    norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
+    
+    x_raw = np.arctanh(norm_y_mapped) / scale
+    
+    return float(x_raw)
