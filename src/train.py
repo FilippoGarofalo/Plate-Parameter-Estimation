@@ -33,7 +33,7 @@ def main():
     # We use custom learning rates
     optimizer = get_optimizer(model, lr=LR)
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=200)
 
 
     # 3. OPTIMIZATION LOOP
