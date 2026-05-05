@@ -191,24 +191,24 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         num_samples = int(self.sample_rate * duration)
 
-        q_history = torch.empty((len(P), num_samples), device=device, dtype=self.dtype)
-
         q1 = torch.zeros_like(P)
         q2 = torch.zeros_like(P)
 
-    
+        y_list = []
+
         for n in range(num_samples):
             fin = 1.0 if n == 0 else 0.0
             
             q = G1 * q1 - G2 * q2 + P * fin
             
-            q_history[:, n] = q1
+            # Sommiamo subito i modi e salviamo lo scalare.
+            # Questo libera istantaneamente la memoria dei tensori grandi.
+            y_list.append(torch.sum(q1))
             
             q2 = q1
             q1 = q
 
-        
-        y = torch.sum(q_history, dim=0)
+        y = torch.stack(y_list)
 
         if velCalc:
             y_prev_tensor = torch.cat((torch.tensor([0.0], device=device, dtype=self.dtype), y[:-1]))
