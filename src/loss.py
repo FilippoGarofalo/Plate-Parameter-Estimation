@@ -26,7 +26,7 @@ class TimeDomainEnergyLoss(nn.Module):
         target_audio = target_audio.squeeze()
     
         # --- 1. MSE Loss ---
-        target_variance = torch.mean(target_audio ** 2) + 1e-8
+        target_variance = torch.mean(target_audio ** 2) + 1e-3
         raw_mse = F.mse_loss(pred_audio, target_audio)
         mse_loss = raw_mse / target_variance
         
@@ -34,7 +34,7 @@ class TimeDomainEnergyLoss(nn.Module):
         pred_energy = pred_audio ** 2
         target_energy = target_audio ** 2
         
-        target_energy_var = torch.mean(target_energy ** 2) + 1e-8
+        target_energy_var = torch.mean(target_energy ** 2) + 1e-3
         raw_energy_loss = F.mse_loss(pred_energy, target_energy)
         energy_loss = raw_energy_loss / target_energy_var
 
