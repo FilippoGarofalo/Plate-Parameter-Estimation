@@ -5,23 +5,25 @@ import torch.nn.functional as F
 class Loss(nn.Module):
 
     def __init__(self, mse_weight=0.0, stft_weight=1.0,
+                 energy_weight=0.0,
                  cutoff_hz=200.0, sr=44100,
                  fft_sizes=[64, 256, 1024, 4096]):
         super().__init__()
 
         self.mse_weight = mse_weight
         self.stft_weight = stft_weight
-
+        self.energy_weight = energy_weight
         self.cutoff_hz = cutoff_hz
         self.sr = sr
         self.fft_sizes = fft_sizes
 
+        # cache finestre (IMPORTANTISSIMO)
         self.windows = nn.ParameterDict({
             str(n): nn.Parameter(torch.hann_window(n), requires_grad=False)
             for n in fft_sizes
         })
 
-        self.eps = 1e-4
+        self.eps = 1e-7
 
     def forward(self, pred_audio, target_audio):
 
