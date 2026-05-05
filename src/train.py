@@ -1,57 +1,34 @@
 import torch
 import time
 from model import DifferentiableModalPlate
-from loss import TimeDomainEnergyLoss
-from utils import load_challenge_npz, invert_composite_parameters
+from loss import Loss
+from utils import load_challenge_npz
 from optimizer import get_optimizer
-import numpy as np
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    # Replace this with the actual path to a challenge target IR
+    
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 2000
-    # Increased LR to 0.1 (Recommended if you switched to sigmoid normalization in [0,1])
-    # If you are still using the unbounded tanh, you may need to lower this back to 0.01
     LR = 0.1
     dtype = torch.float32
 
-    # Target parameters for reference
-    Lx = 1.0
-    Ly = 2.25
-    h = 0.0025
-    T0 = 450.0
-    rho = 7850.0
-    E = 20.0e10
-    nu = 0.25
-
-    target_mu = rho * h
-    target_D = (E * h**3) / (12 * (1 - nu**2))
-    target_D_mu = target_D / target_mu
-    target_T0_mu = T0 / target_mu
-
-    target_xo = 0.75 * Lx
-    target_yo = 0.82 * Ly
-    # Load the target audio
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
-    # Computes target IR duration
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    # Configure the loss to use Multi-Scale Spectral (MSS) and Energy only.
-    # We set lowpass_weight=0.0 because the large FFT windows in MSS already handle the low frequencies.
-    criterion = TimeDomainEnergyLoss(
-    mse_weight=0.0,
-    stft_weight=5.0,
-    lowpass_weight=0.0,
-    energy_weight=0.1,
-    fft_sizes=[64, 256, 1024, 4096]
+    criterion = Loss(
+        mse_weight=1.0,
+        stft_weight=0.0,
+        lowpass_weight=0.0,
+        energy_weight=0.0,
+        fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
 
     #model.Ly_raw.requires_grad = False
