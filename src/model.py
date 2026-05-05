@@ -48,9 +48,9 @@ class DifferentiableModalPlate(nn.Module):
             self.mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
             self.D_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
             self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
-            self.Ly_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.Ly_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
             self.xo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.yo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.yo_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
         else:
             print("Initializing with provided plate parameters...")
             self.mu_raw = nn.Parameter(torch.tensor(plate_params['mu_raw'], dtype=dtype))
@@ -69,6 +69,9 @@ class DifferentiableModalPlate(nn.Module):
 
         def map_linear_fast(x, min_v, max_v):
             return min_v + to_norm_fast(x) * (max_v - min_v)
+        
+        def map_linear_slow(x, min_v, max_v):
+            return min_v + to_norm_slow(x) * (max_v - min_v)
             
         def map_log_fast(x, min_v, max_v):
             log_min, log_max = np.log10(min_v), np.log10(max_v)
@@ -79,9 +82,9 @@ class DifferentiableModalPlate(nn.Module):
             return 10.0 ** (log_min + to_norm_slow(x) * (log_max - log_min))
 
         
-        Ly = map_linear_fast(self.Ly_raw, 1.1, 4.0)
+        Ly = map_linear_slow(self.Ly_raw, 1.1, 4.0)
         xo = map_linear_fast(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
-        yo = map_linear_fast(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
+        yo = map_linear_slow(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
         mu = map_log_fast(self.mu_raw, 1.0, 150.0) 
 
         D_over_mu = map_log_slow(self.D_over_mu_raw, 2.0, 100.0)
