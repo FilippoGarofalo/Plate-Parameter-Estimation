@@ -50,7 +50,7 @@ def main():
     # Configure the loss to use Multi-Scale Spectral (MSS) and Energy only.
     # We set lowpass_weight=0.0 because the large FFT windows in MSS already handle the low frequencies.
     criterion = TimeDomainEnergyLoss(
-        mse_weight=1.0, 
+        mse_weight=0.5, 
         stft_weight=10.0,      # Scales the MSS loss
         lowpass_weight=0.0,    # Disabled
         energy_weight=1.0, 
@@ -65,6 +65,15 @@ def main():
     start_time = time.time()
     
     for iteration in range(num_iterations):
+        if iteration == 300:
+            print("\n  >>> PHASE 2: Unlocking Geometry <<<", flush=True)
+            model.Ly_raw.requires_grad = True
+            model.xo_raw.requires_grad = True
+            model.yo_raw.requires_grad = True
+            
+            # Re-initialize Adam so it grabs the newly unlocked parameters
+            # We slightly drop the LR for fine-tuning
+            optimizer = torch.optim.Adam(model.parameters(), lr=LR * 0.5)
         # Step 1: Clear the gradients
         optimizer.zero_grad()
 

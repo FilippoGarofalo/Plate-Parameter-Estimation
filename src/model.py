@@ -46,12 +46,12 @@ class DifferentiableModalPlate(nn.Module):
 
         # 2. LEARNABLE PARAMETERS
         if plate_params is None:
-            self.mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.Ly_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.xo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.yo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.Ly_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.xo_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.yo_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
         else:
             print("Initializing with provided plate parameters...")
             self.mu_raw = nn.Parameter(torch.tensor(plate_params['mu_raw'], dtype=dtype))
