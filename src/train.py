@@ -55,9 +55,9 @@ def main():
     #model.xo_raw.requires_grad = False
     #model.yo_raw.requires_grad = False
 
-    active_params = filter(lambda p: p.requires_grad, model.parameters())
+    #active_params = filter(lambda p: p.requires_grad, model.parameters())
 
-    optimizer = get_optimizer(active_params ,lr=LR)
+    optimizer = get_optimizer(model, lr=LR)
     
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")

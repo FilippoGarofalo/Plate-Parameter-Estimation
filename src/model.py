@@ -36,7 +36,7 @@ class DifferentiableModalPlate(nn.Module):
         self.register_buffer('alpha', alpha.clone().detach().to(dtype))
         self.register_buffer('beta', beta.clone().detach().to(dtype))
 
-        M_max, N_max = 90, 140
+        M_max, N_max = 90, 90
         m_idx = torch.arange(1, M_max + 1)
         n_idx = torch.arange(1, N_max + 1)
         grid_m, grid_n = torch.meshgrid(m_idx, n_idx, indexing='ij')
