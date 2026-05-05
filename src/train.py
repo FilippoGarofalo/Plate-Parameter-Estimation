@@ -15,7 +15,7 @@ def main():
     num_iterations = 2000
     # Increased LR to 0.1 (Recommended if you switched to sigmoid normalization in [0,1])
     # If you are still using the unbounded tanh, you may need to lower this back to 0.01
-    LR = 0.1
+    LR = 0.01
     dtype = torch.float32
 
     # Target parameters for reference
@@ -49,7 +49,7 @@ def main():
     mse_weight=0.0,
     stft_weight=5.0,
     lowpass_weight=0.0,
-    energy_weight=0.0,
+    energy_weight=0.1,
     fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
 
