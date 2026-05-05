@@ -4,6 +4,7 @@ from model import DifferentiableModalPlate
 from loss import TimeDomainEnergyLoss
 from utils import load_challenge_npz, invert_composite_parameters
 from optimizer import get_optimizer
+import numpy as np
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
@@ -61,6 +62,8 @@ def main():
 
     optimizer = get_optimizer(active_params ,lr=LR)
 
+    progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
+
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
@@ -103,8 +106,20 @@ def main():
             f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
             print("-" * 60)
 
+            progress['iteration'].append(iteration)
+            progress['loss'].append(loss.item())
+            progress['mu'].append(mu)
+            progress['D_over_mu'].append(D_over_mu)
+            progress['T0_over_mu'].append(T0_over_mu)
+            progress['Ly'].append(Ly)
+            progress['xo'].append(xo)
+            progress['yo'].append(yo)
+
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")
+
+    np.savez('target/train_progress.npz', **{k: np.array(v) for k, v in progress.items()})
+    print("Training progress saved to target/train_progress.npz")
 
     # 4. RESULTS
     # ---------------------------------------------------------
