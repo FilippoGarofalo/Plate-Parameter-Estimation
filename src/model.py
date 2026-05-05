@@ -36,7 +36,7 @@ class DifferentiableModalPlate(nn.Module):
         self.register_buffer('alpha', alpha.clone().detach().to(dtype))
         self.register_buffer('beta', beta.clone().detach().to(dtype))
 
-        M_max, N_max = 90, 90
+        M_max, N_max = 60, 135
         m_idx = torch.arange(1, M_max + 1)
         n_idx = torch.arange(1, N_max + 1)
         grid_m, grid_n = torch.meshgrid(m_idx, n_idx, indexing='ij')
@@ -61,9 +61,8 @@ class DifferentiableModalPlate(nn.Module):
             self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=dtype))
 
     def get_physical_parameters(self):
-        # Maps an unbounded Adam parameter exactly to [0, 1]
         def to_norm(x):
-            return torch.sigmoid(x)
+            return (torch.tanh(x) + 1.0) / 2.0
 
         def map_range_linear(x, min_v, max_v):
             norm_x = to_norm(x)
