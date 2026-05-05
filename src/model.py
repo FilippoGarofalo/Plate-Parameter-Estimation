@@ -122,7 +122,7 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 1. MODAL GRID 
         # =========================
-        term = (-T0_over_mu + torch.sqrt(T0_over_mu**2 + 4 * self.maxOm**2 * mu * D_over_mu)) / (2 * D_over_mu)
+        term = (-T0_over_mu + torch.sqrt(T0_over_mu**2 + 4 * self.maxOm**2 * D_over_mu)) / (2 * D_over_mu)
 
         DDx = torch.floor(self.Lx / pi * torch.sqrt(term)).to(torch.int64)
         DDy = torch.floor(Ly / pi * torch.sqrt(term)).to(torch.int64)
@@ -151,7 +151,7 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 4. SORT 
         # =========================
-        omega, sort_idx = torch.sort(omega)
+        omega, sort_idx = torch.sort(omega, stable=True)
         m_vec = m_vec[sort_idx]
         n_vec = n_vec[sort_idx]
 

@@ -17,16 +17,37 @@ class Loss(nn.Module):
         self.sr = sr
         self.fft_sizes = fft_sizes
 
-        # cache finestre (IMPORTANTISSIMO)
         self.windows = nn.ParameterDict({
             str(n): nn.Parameter(torch.hann_window(n), requires_grad=False)
             for n in fft_sizes
         })
+        
+        self.target_stft_cache = {}  # key: (device, n_fft), value: stft tensor
+        self.cached_target_audio = None
 
         self.eps = 1e-7
 
+    def precompute_target_stft(self, target_audio):
+        target_audio = target_audio.squeeze()
+        device = target_audio.device
+        
+        self.cached_target_audio = target_audio
+        self.target_stft_cache.clear()
+        
+        for n_fft in self.fft_sizes:
+            hop = n_fft // 4
+            window = self.windows[str(n_fft)].to(device)
+            
+            target_stft = torch.stft(target_audio, n_fft=n_fft, hop_length=hop,
+                                     win_length=n_fft, window=window,
+                                     return_complex=True, center=True)
+            
+            self.target_stft_cache[(device, n_fft)] = target_stft
+    
     def forward(self, pred_audio, target_audio):
-
+        peak = torch.max(torch.abs(target_audio)) + 1e-8
+        norm_target = target_audio / peak
+        norm_pred = pred_audio / peak
         pred_audio = pred_audio.squeeze()
         target_audio = target_audio.squeeze()
 
@@ -35,8 +56,8 @@ class Loss(nn.Module):
         # =========================
         # 1. MSE NORMALIZED
         # =========================
-        target_var = torch.mean(target_audio**2).clamp_min(self.eps)
-        mse_loss = F.mse_loss(pred_audio, target_audio) / target_var
+        target_var = torch.mean(norm_target**2).clamp_min(self.eps)
+        mse_loss = F.mse_loss(norm_pred, norm_target) / target_var
 
         # =========================
         # 2. ENERGY LOSS
@@ -59,10 +80,9 @@ class Loss(nn.Module):
             pred_stft = torch.stft(pred_audio, n_fft=n_fft, hop_length=hop,
                                    win_length=n_fft, window=window,
                                    return_complex=True, center=True)
-
-            target_stft = torch.stft(target_audio, n_fft=n_fft, hop_length=hop,
-                                     win_length=n_fft, window=window,
-                                     return_complex=True, center=True)
+            
+            # Retrieve cached target STFT
+            target_stft = self.target_stft_cache[(device, n_fft)]
 
             pred_mag = torch.abs(pred_stft).clamp_min(self.eps)
             target_mag = torch.abs(target_stft).clamp_min(self.eps)

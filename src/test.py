@@ -58,10 +58,10 @@ def get_ir():
     np_plate.fmax = 20000.0  
     np_plate.setup() 
     
-    target_ir = np_plate.synthesize_ir_method(duration=duration, velCalc=False, normalize=True)
+    target_ir = np_plate.synthesize_ir_method(duration=duration, velCalc=False, normalize=False)
     
     torch_plate = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=perfect_initial_guess)
-    test_ir = torch_plate.forward(normalize=True, velCalc=False)
+    test_ir = torch_plate.forward(normalize=False, velCalc=False)
     test_ir = test_ir.detach().numpy()
     
     return target_ir, test_ir

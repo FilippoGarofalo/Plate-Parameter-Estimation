@@ -1,5 +1,6 @@
 import torch
 import time
+import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
 from utils import load_challenge_npz
@@ -37,6 +38,9 @@ def main():
     active_params = filter(lambda p: p.requires_grad, model.parameters())
 
     optimizer = get_optimizer(active_params ,lr=LR)
+    
+    # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
+    criterion.precompute_target_stft(target_ir)
 
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
