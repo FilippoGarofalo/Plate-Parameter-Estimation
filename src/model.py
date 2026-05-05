@@ -61,29 +61,31 @@ class DifferentiableModalPlate(nn.Module):
             self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=dtype))
 
     def get_physical_parameters(self):
-        def to_norm(x):
+        def to_norm_fast(x):
             return (torch.tanh(x) + 1.0) / 2.0
 
-        def map_range_linear(x, min_v, max_v):
-            norm_x = to_norm(x)
-            return min_v + norm_x * (max_v - min_v)
+        def to_norm_slow(x):
+            return torch.sigmoid(x)
 
-        def map_range_log(x, min_v, max_v, skew=1.0):
-            norm_x = to_norm(x)
+        def map_linear_fast(x, min_v, max_v):
+            return min_v + to_norm_fast(x) * (max_v - min_v)
             
-            norm_x = torch.pow(norm_x, skew) 
-            
-            log_min = np.log10(min_v)
-            log_max = np.log10(max_v)
-            return 10.0 ** (log_min + norm_x * (log_max - log_min))
+        def map_log_fast(x, min_v, max_v):
+            log_min, log_max = np.log10(min_v), np.log10(max_v)
+            return 10.0 ** (log_min + to_norm_fast(x) * (log_max - log_min))
 
-        mu = map_range_log(self.mu_raw, 2.43, 106.15)
-        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188)
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52, skew=0.5)
+        def map_log_slow(x, min_v, max_v):
+            log_min, log_max = np.log10(min_v), np.log10(max_v)
+            return 10.0 ** (log_min + to_norm_slow(x) * (log_max - log_min))
 
-        Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
-        xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
-        yo = map_range_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
+        
+        Ly = map_linear_fast(self.Ly_raw, 1.1, 4.0)
+        xo = map_linear_fast(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
+        yo = map_linear_fast(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
+        mu = map_log_fast(self.mu_raw, 1.0, 150.0) 
+
+        D_over_mu = map_log_slow(self.D_over_mu_raw, 2.0, 100.0)
+        T0_over_mu = map_log_slow(self.T0_over_mu_raw, 1.0, 500.0)
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
