@@ -49,7 +49,7 @@ def main():
     mse_weight=0.0,
     stft_weight=5.0,
     lowpass_weight=0.0,
-    energy_weight=0.0,
+    energy_weight=1.0,
     fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
 
@@ -60,7 +60,9 @@ def main():
     active_params = filter(lambda p: p.requires_grad, model.parameters())
 
     optimizer = get_optimizer(active_params ,lr=LR)
-
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=20
+    )
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
@@ -91,6 +93,8 @@ def main():
 
         # Step 6: Update Parameters
         optimizer.step()
+
+        scheduler.step(loss)
 
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
