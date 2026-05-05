@@ -8,7 +8,7 @@ import numpy as np
 class DifferentiableModalPlate(nn.Module):
 
     def __init__(self, sample_rate: int = 44100, plate_params: dict = None,
-             dtype: torch.dtype = torch.float64):
+             dtype: torch.dtype = torch.float32):
         super(DifferentiableModalPlate, self).__init__()
 
         import math
@@ -113,6 +113,30 @@ class DifferentiableModalPlate(nn.Module):
 
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
+    def solve_modal_system(self, G1: torch.Tensor, G2: torch.Tensor, P: torch.Tensor, 
+                       num_samples: int) -> torch.Tensor:
+    
+        num_modes = G1.shape[0]
+        
+        q1 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
+        q2 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
+        y = torch.zeros(num_samples, dtype=G1.dtype, device=G1.device)
+        
+        for n in range(num_samples):
+            # Impulse only at first sample
+            fin = 1.0 if n == 0 else 0.0
+            
+            # ✅ Recurrence relation (same math)
+            q = G1 * q1 - G2 * q2 + P * fin
+            
+            # ✅ Output: sum of PREVIOUS state
+            y[n] = torch.sum(q1)
+            
+            # ✅ Update per next iteration (in-place)
+            q2 = q1.clone()
+            q1 = q
+        return y
+    
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
@@ -190,23 +214,9 @@ class DifferentiableModalPlate(nn.Module):
         # 7. TIME INTEGRATION 
         # =========================
         num_samples = int(self.sample_rate * duration)
+        
+        y = self.solve_modal_system(G1, G2, P, num_samples)
 
-        q1 = torch.zeros_like(P)
-        q2 = torch.zeros_like(P)
-
-        y_list = []
-
-        for n in range(num_samples):
-            fin = 1.0 if n == 0 else 0.0
-            
-            q = G1 * q1 - G2 * q2 + P * fin
-            
-            y_list.append(torch.sum(q1))
-            
-            q2 = q1
-            q1 = q
-
-        y = torch.stack(y_list)
 
         if velCalc:
             y_prev_tensor = torch.cat((torch.tensor([0.0], device=device, dtype=self.dtype), y[:-1]))
@@ -220,4 +230,5 @@ class DifferentiableModalPlate(nn.Module):
             y = y / peak
 
         return y
+
         
