@@ -115,14 +115,18 @@ class DifferentiableModalPlate(nn.Module):
         
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms)
         
+        # --- FIX B: MASCHERE MORBIDE ---
+        # Applichiamo una transizione dolce per non spezzare il grafo dei gradienti
         low_mask = torch.sigmoid((omega - 20 * 2 * np.pi) / 50.0)
         high_mask = torch.sigmoid((self.maxOm - omega) / 50.0)
         P = P * low_mask * high_mask
         
         valid_idx = torch.arange(len(omega), device=P.device)
+        
         num_samples = int(self.sample_rate * duration)
         
-        # Initialize accumulator
+        n_row = torch.arange(num_samples, device=P.device, dtype=self.dtype).unsqueeze(0)
+        
         displacement_out = torch.zeros(num_samples, device=P.device, dtype=self.dtype)
 
         # 2. Process in chunks WITH Gradient Checkpointing
