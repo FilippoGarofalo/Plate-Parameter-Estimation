@@ -76,7 +76,7 @@ class DifferentiableModalPlate(nn.Module):
 
         mu = map_range_log(self.mu_raw, 2.43, 106.15)
         D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188)
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.1, 411.52)
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
@@ -115,13 +115,12 @@ class DifferentiableModalPlate(nn.Module):
         
         P = (OutWeight * InWeight * self.k**2 * torch.exp(-sigma * self.k) / ms)
         
-        # 1. Find only the valid indices (20Hz to 10kHz)
-        valid_idx = torch.where((omega <= self.maxOm) & (omega >= (20 * 2 * np.pi)))[0]
+        low_mask = torch.sigmoid((omega - 20 * 2 * np.pi) / 50.0)
+        high_mask = torch.sigmoid((self.maxOm - omega) / 50.0)
+        P = P * low_mask * high_mask
         
+        valid_idx = torch.arange(len(omega), device=P.device)
         num_samples = int(self.sample_rate * duration)
-        
-        # Create a (1, T) row vector for the time indices
-        n_row = torch.arange(num_samples, device=P.device, dtype=self.dtype).unsqueeze(0)
         
         # Initialize accumulator
         displacement_out = torch.zeros(num_samples, device=P.device, dtype=self.dtype)
