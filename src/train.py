@@ -50,7 +50,7 @@ def main():
     stft_weight=5.0,
     lowpass_weight=0.0,
     energy_weight=0.0,
-    fft_sizes=[4096]
+    fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
 
     #model.Ly_raw.requires_grad = False
