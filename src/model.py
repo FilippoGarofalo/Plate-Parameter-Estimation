@@ -45,8 +45,8 @@ class DifferentiableModalPlate(nn.Module):
 
         # 2. LEARNABLE PARAMETERS
         if plate_params is None:
-            self.mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
             self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
             self.Ly_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
             self.xo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
@@ -85,9 +85,9 @@ class DifferentiableModalPlate(nn.Module):
         Ly = map_linear_slow(self.Ly_raw, 1.1, 4.0)
         xo = map_linear_fast(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
         yo = map_linear_slow(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
-        mu = map_log_fast(self.mu_raw, 1.0, 150.0) 
+        mu = map_log_slow(self.mu_raw, 1.0, 150.0) 
 
-        D_over_mu = map_log_slow(self.D_over_mu_raw, 2.0, 100.0)
+        D_over_mu = map_log_fast(self.D_over_mu_raw, 2.0, 100.0)
         T0_over_mu = map_log_slow(self.T0_over_mu_raw, 1.0, 500.0)
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
