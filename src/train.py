@@ -86,7 +86,8 @@ def main():
         loss.backward()
 
         # Step 5: Gradient Clipping (Crucial for stability with Adam and physical parameters)
-        #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        clip_params = [model.mu_raw, model.D_over_mu_raw, model.T0_over_mu_raw]
+        torch.nn.utils.clip_grad_norm_(clip_params, max_norm=1.0)
 
         if iteration == 0:
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
