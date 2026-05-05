@@ -11,13 +11,16 @@ def main():
     print(f"Using device: {device}")
     
     # Replace this with the actual path to a challenge target IR
-    #target_audio_path = "target/plate-ir.wav" 
     target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 2000
-    LR = 0.01
-    dtype = torch.float32   # switch to torch.float32 to halve memory and speed up at slight precision cost
+    
+    # Increased LR to 0.1 (Recommended if you switched to sigmoid normalization in [0,1])
+    # If you are still using the unbounded tanh, you may need to lower this back to 0.01
+    LR = 0.1 
+    dtype = torch.float32
 
+    # Target parameters for reference
     Lx = 1.0          
     Ly = 2.25         
     h = 0.0025
@@ -35,7 +38,6 @@ def main():
     target_yo = 0.82 * Ly  
     
     # Load the target audio
-    #target_ir = load_target_audio(target_audio_path, target_sr=sample_rate, device=device, dtype=dtype, normalize=True)
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
     # Computes target IR duration
@@ -44,13 +46,19 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    criterion = TimeDomainEnergyLoss().to(device)
+    
+    # Configure the loss to use Multi-Scale Spectral (MSS) and Energy only.
+    # We set lowpass_weight=0.0 because the large FFT windows in MSS already handle the low frequencies.
+    criterion = TimeDomainEnergyLoss(
+        mse_weight=1.0, 
+        stft_weight=10.0,      # Scales the MSS loss
+        lowpass_weight=0.0,    # Disabled
+        energy_weight=1.0, 
+        fft_sizes=[64, 256, 1024, 4096]
+    ).to(device)
 
-    # We use custom learning rates
+    # Optimizer
     optimizer = get_optimizer(model, lr=LR)
-
-    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=200)
-
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -64,18 +72,7 @@ def main():
         if iteration == 0: print("  [diag] forward...", flush=True)
         pred_ir = model(duration=duration, normalize=False, velCalc=False)
         
-        if iteration < 150:
-            criterion.mse_weight = 0.0
-            criterion.stft_weight = 0.0
-            criterion.lowpass_weight = 50.0 
-            criterion.energy_weight = 0.1
-        elif iteration < 500:
-            criterion.mse_weight = 0.0
-            criterion.stft_weight = 20.0
-            criterion.lowpass_weight = 5.0
-            criterion.energy_weight = 1.0
-
-        # Step 3: Compute Loss
+        # Step 3: Compute Loss (Curriculum learning removed; MSS handles it all)
         if iteration == 0: print("  [diag] loss...", flush=True)
         loss = criterion(pred_ir, target_ir)
 
@@ -83,18 +80,17 @@ def main():
         if iteration == 0: print(f"  [diag] loss={loss.item():.6f}  backward...", flush=True)
         loss.backward()
 
+        # Step 5: Gradient Clipping (Crucial for stability with Adam and physical parameters)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
         if iteration == 0:
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
             print(f"  [diag] grad norms: {grad_norms}", flush=True)
 
-        # Step 5: Update Parameters
+        # Step 6: Update Parameters
         optimizer.step()
 
-        # Step 6: Reduce lr when loss plateaus
-        #scheduler.step(loss.item())
- 
-
-        # Step 6: Print the updated parameters (look ups for starting values in model.py)
+        # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
             
             # Safely extract the current bounded physical values
@@ -102,24 +98,12 @@ def main():
                 p.detach().cpu().item() for p in model.get_physical_parameters()
             ]
             
+            print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
             print(f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
                   f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
             
-            grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
-            #print(f"  [diag] grad norms: {grad_norms}", flush=True)
-            # Iteration and loss logs
-            print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
+            print("-" * 60)
 
-            print("-" * 60)
-            h, E, T0 = invert_composite_parameters(mu, D_over_mu, T0_over_mu, rho, nu)
-            print(f"  -> Estimated Thickness (h): {h:.4f} mm")
-            print(f"  -> Estimated Young's Modulus (E): {E*1e-9:.2f} GPa")
-            print(f"  -> Estimated Tension (T0): {T0:.2f} N/m")
-            print("-" * 60)
-            print(f"  -> Estimated Ly: {Ly:.4f} mm")
-            print(f"  -> Estimated xo: {xo:.4f} mm")
-            print(f"  -> Estimated yo: {yo:.4f} mm")
-            print("-" * 60)
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")
 

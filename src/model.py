@@ -62,21 +62,23 @@ class DifferentiableModalPlate(nn.Module):
             self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=dtype))
 
     def get_physical_parameters(self):
-        def map_range_linear(x, min_v, max_v, scale=1.0):
-            return min_v + (max_v - min_v) * ((torch.tanh(x * scale) + 1.0) / 2.0)
+        # Maps an unbounded Adam parameter exactly to [0, 1]
+        def to_norm(x):
+            return torch.sigmoid(x)
 
-        def map_range_log(x, min_v, max_v, scale=1.0):
-            norm_x = (torch.tanh(x * scale) + 1.0) / 2.0
+        def map_range_linear(x, min_v, max_v):
+            norm_x = to_norm(x)
+            return min_v + norm_x * (max_v - min_v)
+
+        def map_range_log(x, min_v, max_v):
+            norm_x = to_norm(x)
             log_min = np.log10(min_v)
             log_max = np.log10(max_v)
-            log_val = log_min + (log_max - log_min) * norm_x
-            return 10.0 ** log_val
+            return 10.0 ** (log_min + norm_x * (log_max - log_min))
 
-        mu = map_range_log(self.mu_raw, 2.43, 106.15, scale=0.1)
-        
-        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188, scale=0.1)
-        
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52, scale=0.1)
+        mu = map_range_log(self.mu_raw, 2.43, 106.15)
+        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188)
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
