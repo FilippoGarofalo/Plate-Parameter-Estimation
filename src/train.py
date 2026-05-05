@@ -42,8 +42,7 @@ def main():
 
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
-    # Configure the loss to use Multi-Scale Spectral (MSS) and Energy only.
-    # We set lowpass_weight=0.0 because the large FFT windows in MSS already handle the low frequencies.
+
     criterion = TimeDomainEnergyLoss(
     mse_weight=0.0,
     stft_weight=5.0,
