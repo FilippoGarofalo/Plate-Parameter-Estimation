@@ -50,10 +50,10 @@ def main():
     # Configure the loss to use Multi-Scale Spectral (MSS) and Energy only.
     # We set lowpass_weight=0.0 because the large FFT windows in MSS already handle the low frequencies.
     criterion = TimeDomainEnergyLoss(
-        mse_weight=0.5, 
-        stft_weight=10.0,      # Scales the MSS loss
+        mse_weight=0.01, 
+        stft_weight=5.0,      # Scales the MSS loss
         lowpass_weight=0.0,    # Disabled
-        energy_weight=1.0, 
+        energy_weight=0.1, 
         fft_sizes=[64, 256, 1024, 4096]
     ).to(device)
 
@@ -76,16 +76,16 @@ def main():
             model.xo_raw.requires_grad = True
             model.yo_raw.requires_grad = True
             
-            # Re-initialize Adam so it grabs the newly unlocked parameters
-            # We slightly drop the LR for fine-tuning
+            
             criterion = TimeDomainEnergyLoss(
                     mse_weight=1.0, 
-                    stft_weight=0.5,      # Scales the MSS loss
-                    lowpass_weight=0.0,    # Disabled
+                    stft_weight=0.1,      
+                    lowpass_weight=0.0,    
                     energy_weight=1.0, 
                     fft_sizes=[64, 256, 1024, 4096]
                 ).to(device)
-            optimizer = get_optimizer(active_params ,lr=LR*0.5)
+            new_active_params = filter(lambda p: p.requires_grad, model.parameters())
+            optimizer = get_optimizer(new_active_params ,lr=LR*0.5)
         # Step 1: Clear the gradients
         optimizer.zero_grad()
 
