@@ -47,7 +47,7 @@ class DifferentiableModalPlate(nn.Module):
         if plate_params is None:
             self.mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
             self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
-            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
             self.Ly_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
             self.xo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
             self.yo_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
@@ -88,7 +88,7 @@ class DifferentiableModalPlate(nn.Module):
         mu = map_log_slow(self.mu_raw, 1.0, 150.0) 
 
         D_over_mu = map_log_fast(self.D_over_mu_raw, 2.0, 100.0)
-        T0_over_mu = map_log_slow(self.T0_over_mu_raw, 1.0, 500.0)
+        T0_over_mu = map_log_fast(self.T0_over_mu_raw, 1.0, 500.0)
         
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
