@@ -11,7 +11,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_1.npz"
+    target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 2000
     LR = 0.1
@@ -55,7 +55,6 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
         pred_ir = model(duration=duration, normalize=False, velCalc=False)
-        # Step 3: Compute Loss (Curriculum learning removed; MSS handles it all)
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
         loss = criterion(pred_ir, target_ir)
@@ -66,7 +65,7 @@ def main():
         loss.backward()
 
         # Step 5: Gradient Clipping (Crucial for stability with Adam and physical parameters)
-        #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         if iteration == 0:
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}

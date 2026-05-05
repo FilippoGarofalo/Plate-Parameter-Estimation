@@ -40,12 +40,10 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
 
 
 def logit(p):
-    """Calcola l'inversa della funzione Sigmoide."""
     p = np.clip(p, 1e-15, 1.0 - 1e-15)
     return np.log(p / (1.0 - p))
 
 def inverse_map_range_linear(y, min_v, max_v):
-    """Inversa di map_range_linear (basata su Sigmoide)"""
     norm_y = (y - min_v) / (max_v - min_v)
     
     x_raw = logit(norm_y)
@@ -53,7 +51,6 @@ def inverse_map_range_linear(y, min_v, max_v):
     return float(x_raw)
 
 def inverse_map_range_log(y, min_v, max_v):
-    """Inversa di map_range_log (basata su Log Naturale e Sigmoide)"""
     log_y = np.log(y)
     log_min = np.log(min_v)
     log_max = np.log(max_v)

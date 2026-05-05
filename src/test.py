@@ -86,7 +86,7 @@ def test_forward_pass_equivalence():
     cum_test   = cumulative_energy(test_ir)
     mse_cum    = mse_cumulative_energy(target_ir, test_ir)
     mse_raw    = float(np.mean(error_signal ** 2))
-    max_abs_err = float(np.max(np.abs(error_signal)))   # <-- aggiunto
+    max_abs_err = float(np.max(np.abs(error_signal)))   
 
     print(f"Average Absolute Error : {np.mean(np.abs(error_signal)):.6f}")
     print(f"Max Absolute Error     : {max_abs_err:.6f}")

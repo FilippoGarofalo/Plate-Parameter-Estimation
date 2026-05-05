@@ -123,16 +123,12 @@ class DifferentiableModalPlate(nn.Module):
         y = torch.zeros(num_samples, dtype=G1.dtype, device=G1.device)
         
         for n in range(num_samples):
-            # Impulse only at first sample
             fin = 1.0 if n == 0 else 0.0
             
-            # ✅ Recurrence relation (same math)
             q = G1 * q1 - G2 * q2 + P * fin
             
-            # ✅ Output: sum of PREVIOUS state
             y[n] = torch.sum(q1)
             
-            # ✅ Update per next iteration (in-place)
             q2 = q1.clone()
             q1 = q
         return y
