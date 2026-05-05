@@ -124,11 +124,11 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         term = (-T0_over_mu + torch.sqrt(T0_over_mu**2 + 4 * self.maxOm**2 * D_over_mu)) / (2 * D_over_mu)
 
-        DDx = torch.floor(self.Lx / pi * torch.sqrt(term)).to(torch.int64)
-        DDy = torch.floor(Ly / pi * torch.sqrt(term)).to(torch.int64)
+        DDx = 90
+        DDy = 90
 
-        m_idx = torch.arange(1, DDx.item() + 1, device=device, dtype=self.dtype)
-        n_idx = torch.arange(1, DDy.item() + 1, device=device, dtype=self.dtype)
+        m_idx = torch.arange(1, DDx, device=device, dtype=self.dtype)
+        n_idx = torch.arange(1, DDy, device=device, dtype=self.dtype)
 
         m_grid, n_grid = torch.meshgrid(m_idx, n_idx, indexing='ij')
         m_vec = m_grid.flatten()
@@ -201,8 +201,6 @@ class DifferentiableModalPlate(nn.Module):
             
             q = G1 * q1 - G2 * q2 + P * fin
             
-            # Sommiamo subito i modi e salviamo lo scalare.
-            # Questo libera istantaneamente la memoria dei tensori grandi.
             y_list.append(torch.sum(q1))
             
             q2 = q1
