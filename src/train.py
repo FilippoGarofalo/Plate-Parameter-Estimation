@@ -24,9 +24,8 @@ def main():
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
     criterion = Loss(
-        mse_weight=1.0,
-        stft_weight=0.0,
-        lowpass_weight=0.0,
+        mse_weight=0.0,
+        stft_weight=1.0,
         energy_weight=0.0,
         fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
