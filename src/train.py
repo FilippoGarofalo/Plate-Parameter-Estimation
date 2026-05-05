@@ -50,7 +50,7 @@ def main():
     mse_weight=0.0,
     stft_weight=5.0,
     lowpass_weight=0.0,
-    energy_weight=0.0,
+    energy_weight=0.1,
     fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
 
@@ -86,8 +86,7 @@ def main():
         loss.backward()
 
         # Step 5: Gradient Clipping (Crucial for stability with Adam and physical parameters)
-        clip_params = [model.mu_raw, model.D_over_mu_raw, model.T0_over_mu_raw]
-        torch.nn.utils.clip_grad_norm_(clip_params, max_norm=1.0)
+        #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         if iteration == 0:
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
