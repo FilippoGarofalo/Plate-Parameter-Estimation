@@ -191,27 +191,28 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         num_samples = int(self.sample_rate * duration)
 
+        q_history = torch.empty((len(P), num_samples), device=device, dtype=self.dtype)
+
         q1 = torch.zeros_like(P)
         q2 = torch.zeros_like(P)
 
-        y = torch.zeros(num_samples, device=device, dtype=self.dtype)
-        y_prev = torch.tensor(0.0, device=device, dtype=self.dtype)
-
+    
         for n in range(num_samples):
             fin = 1.0 if n == 0 else 0.0
-
+            
             q = G1 * q1 - G2 * q2 + P * fin
-
-            y_cur = torch.sum(q1)
-
-            if velCalc:
-                y[n] = (y_cur - y_prev) / self.k
-            else:
-                y[n] = y_cur
-
+            
+            q_history[:, n] = q1
+            
             q2 = q1
             q1 = q
-            y_prev = y_cur
+
+        
+        y = torch.sum(q_history, dim=0)
+
+        if velCalc:
+            y_prev_tensor = torch.cat((torch.tensor([0.0], device=device, dtype=self.dtype), y[:-1]))
+            y = (y - y_prev_tensor) / self.k
 
         # =========================
         # 8. NORMALIZATION
