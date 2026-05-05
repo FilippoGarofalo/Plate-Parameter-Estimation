@@ -57,8 +57,13 @@ def main():
         fft_sizes=[64, 256, 1024, 4096]
     ).to(device)
 
-    # Optimizer
-    optimizer = get_optimizer(model, lr=LR)
+    model.Ly_raw.requires_grad = False
+    model.xo_raw.requires_grad = False
+    model.yo_raw.requires_grad = False
+
+    active_params = filter(lambda p: p.requires_grad, model.parameters())
+
+    optimizer = get_optimizer(active_params ,lr=LR)
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -73,7 +78,14 @@ def main():
             
             # Re-initialize Adam so it grabs the newly unlocked parameters
             # We slightly drop the LR for fine-tuning
-            optimizer = torch.optim.Adam(model.parameters(), lr=LR * 0.5)
+            criterion = TimeDomainEnergyLoss(
+                    mse_weight=1.0, 
+                    stft_weight=0.5,      # Scales the MSS loss
+                    lowpass_weight=0.0,    # Disabled
+                    energy_weight=1.0, 
+                    fft_sizes=[64, 256, 1024, 4096]
+                ).to(device)
+            optimizer = get_optimizer(active_params ,lr=LR*0.5)
         # Step 1: Clear the gradients
         optimizer.zero_grad()
 
