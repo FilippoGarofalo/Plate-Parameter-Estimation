@@ -45,12 +45,12 @@ class DifferentiableModalPlate(nn.Module):
 
         # 2. LEARNABLE PARAMETERS
         if plate_params is None:
-            self.mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
-            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
-            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
-            self.Ly_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
-            self.xo_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
-            self.yo_raw = nn.Parameter(torch.tensor(0.5, dtype=dtype))
+            self.mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.D_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.T0_over_mu_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.Ly_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.xo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
+            self.yo_raw = nn.Parameter(torch.tensor(0.0, dtype=dtype))
         else:
             print("Initializing with provided plate parameters...")
             self.mu_raw = nn.Parameter(torch.tensor(plate_params['mu_raw'], dtype=dtype))
@@ -61,28 +61,28 @@ class DifferentiableModalPlate(nn.Module):
             self.yo_raw = nn.Parameter(torch.tensor(plate_params['yo_raw'], dtype=dtype))
 
     def get_physical_parameters(self):
-        # Maps an unbounded Adam parameter exactly to [0, 1]
-        def to_norm(x):
-            return torch.sigmoid(x)
+        def map_range_linear(x, min_v, max_v, scale=1.0):
+            return min_v + (max_v - min_v) * ((torch.tanh(x * scale) + 1.0) / 2.0)
 
-        def map_range_linear(x, min_v, max_v):
-            norm_x = to_norm(x)
-            return min_v + norm_x * (max_v - min_v)
-
-        def map_range_log(x, min_v, max_v):
-            norm_x = to_norm(x)
+        def map_range_log(x, min_v, max_v, scale=1.0):
+            norm_x = (torch.tanh(x * scale) + 1.0) / 2.0
             log_min = np.log10(min_v)
             log_max = np.log10(max_v)
-            return 10.0 ** (log_min + norm_x * (log_max - log_min))
+            log_val = log_min + (log_max - log_min) * norm_x
+            return 10.0 ** log_val
 
         mu = map_range_log(self.mu_raw, 2.43, 106.15)
+
+        D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9)
         D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188)
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52)
+
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.1, 411.52)
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52, scale=0.1)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
         yo = map_range_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
-        
+
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
     def compute_chunk(self, w, s, p, n):
