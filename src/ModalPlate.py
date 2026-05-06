@@ -5,7 +5,7 @@
 # ---------------------------------------------------------
 
 import numpy as np
-import time
+
 # Import logger to ensure global print override is active
 try:
     import logger
@@ -13,6 +13,7 @@ except ImportError:
     pass  # Logger module may not be available in all contexts
 
 import os
+import time
 import soundfile as sf
 from scipy.io.wavfile import write
 # ---------------------------------------------------------
@@ -134,7 +135,7 @@ class ModalPlate:
                 ov[ind, :] = [gf, m, n]
                 ind += 1
 
-        ov[:, 0] = np.where(ov[:, 0] < 20 * 2 * np.pi, self.maxOm + 1000, ov[:, 0])
+       # ov[:, 0] = np.where(ov[:, 0] < 20 * 2 * np.pi, self.maxOm + 1000, ov[:, 0])
         ov = ov[np.argsort(ov[:, 0])]
         ov = ov[ov[:, 0] <= self.maxOm]
         return ov
@@ -150,12 +151,17 @@ class ModalPlate:
 
         for m in range(DIM):
             omref, mind, nind = self.ov[m]
-            InWeight = np.cos(self.fp[0] * np.pi * mind) * np.cos(self.fp[1] * np.pi * nind)
-            OutWeight = np.cos(self.op[0] * np.pi * mind) * np.cos(self.op[1] * np.pi * nind)
+            # Paper Eq. 5b: Phi_m uses sin, not cos (matches simply-supported BCs).
+            InWeight = np.sin(self.fp[0] * np.pi * mind) * np.sin(self.fp[1] * np.pi * nind)
+            OutWeight = np.sin(self.op[0] * np.pi * mind) * np.sin(self.op[1] * np.pi * nind)
             sig = alpha + beta * omref**2
             G1vec[m] = 2 * np.cos(omref * k) * np.exp(-sig * k)
             G2vec[m] = np.exp(-2 * sig * k)
-            Pvec[m] = OutWeight * InWeight * k**2 * np.exp(-sig * k) / ms
+            # Paper Eq. 14: b_m = 4 T^2 Phi(xi,yi) Phi(xo,yo) r_m / (rho h Lx Ly)
+            # with Phi = (2/sqrt(Lx Ly)) sin(...) sin(...). The 4/(Lx Ly) from the
+            # two Phi factors, times 1/(rho h Lx Ly), gives an extra 1/(Lx Ly)
+            # relative to 1/ms where ms = 0.25 rho h Lx Ly.
+            Pvec[m] = 4.0 * OutWeight * InWeight * k**2 * np.exp(-sig * k) / (ms * self.Lx * self.Ly)
             sigma_vec[m] = sig
             f0_vec[m] = omref / (2 * np.pi)
         return G1vec, G2vec, Pvec, sigma_vec, f0_vec
@@ -237,14 +243,14 @@ if __name__ == '__main__':
     num_samples = 44100* 5
 
     start_time = time.time()
-    out = plate.synthesize_ir_method(normalize=True)
+    out = plate.synthesize_ir_method()
     elapsed_time = time.time() - start_time
     print(f"Computed {num_samples} samples in {elapsed_time:.2f} seconds.")
 
     print("Max Amplitude: ", np.max(np.abs(out)))
     os.makedirs('audio_output', exist_ok=True)
     try:
-        sf.write('audio_output/plate-ir-normalized.wav', out, int(plate.sample_rate))
+        sf.write('audio_output/plate-ir.wav', out, int(plate.sample_rate))
     except ImportError:
-        write('audio_output/plate-ir-normalized.wav', int(plate.sample_rate), out.astype(np.float32))
-    print("Wrote audio_output/plate-ir-normalized.wav")
+        write('audio_output/plate-ir.wav', int(plate.sample_rate), out.astype(np.float32))
+    print("Wrote audio_output/plate-ir.wav")
