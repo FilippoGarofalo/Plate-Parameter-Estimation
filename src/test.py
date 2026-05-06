@@ -55,7 +55,7 @@ perfect_initial_guess = {
 def get_ir():
     np_plate = ModalPlate(sample_rate=sample_rate, plate_params=custom_params)
     
-    np_plate.fmax = 20000.0  
+    np_plate.fmax = 10000.0  
     np_plate.setup() 
     
     target_ir = np_plate.synthesize_ir_method(duration=duration, velCalc=False, normalize=False)

@@ -15,7 +15,7 @@ class DifferentiableModalPlate(nn.Module):
 
         self.sample_rate = sample_rate
         self.k = 1.0 / sample_rate
-        self.fmax = 20000.0
+        self.fmax = 10000.0
         self.maxOm = self.fmax * 2 * math.pi
         self.dtype = dtype
 
@@ -142,8 +142,8 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 1. MODAL GRID (dinamica)
         # =========================
-        DDx = 155
-        DDy = 620
+        DDx = 77
+        DDy = 310
 
         m_idx = torch.arange(1, DDx, device=device, dtype=self.dtype)
         n_idx = torch.arange(1, DDy, device=device, dtype=self.dtype)
