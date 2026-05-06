@@ -140,12 +140,10 @@ class DifferentiableModalPlate(nn.Module):
         pi = torch.pi
 
         # =========================
-        # 1. MODAL GRID 
+        # 1. MODAL GRID (dinamica)
         # =========================
-        term = (-T0_over_mu + torch.sqrt(T0_over_mu**2 + 4 * self.maxOm**2 * D_over_mu)) / (2 * D_over_mu)
-
-        DDx = 90
-        DDy = 90
+        DDx = 155
+        DDy = 620
 
         m_idx = torch.arange(1, DDx, device=device, dtype=self.dtype)
         n_idx = torch.arange(1, DDy, device=device, dtype=self.dtype)
@@ -166,7 +164,7 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 3. APPLY LOW-FREQ RULE 
         # =========================
-        omega = torch.where(omega < 20 * 2 * pi, self.maxOm + 1000.0, omega)
+        #omega = torch.where(omega < 20 * 2 * pi, self.maxOm + 1000.0, omega)  #Removed as in the ModalPlate
 
         # =========================
         # 4. SORT 
@@ -199,12 +197,12 @@ class DifferentiableModalPlate(nn.Module):
         frac_xo = xo / self.Lx
         frac_yo = yo / Ly
 
-        InWeight = torch.cos(frac_xi * pi * m_vec) * torch.cos(frac_yi * pi * n_vec)
-        OutWeight = torch.cos(frac_xo * pi * m_vec) * torch.cos(frac_yo * pi * n_vec)
+        InWeight = torch.sin(frac_xi * pi * m_vec) * torch.sin(frac_yi * pi * n_vec)
+        OutWeight = torch.sin(frac_xo * pi * m_vec) * torch.sin(frac_yo * pi * n_vec)
 
         ms = 0.25 * mu * self.Lx * Ly
 
-        P = OutWeight * InWeight * self.k**2 * exp_term / ms
+        P = 4.0 * OutWeight * InWeight * self.k**2 * exp_term / (ms * self.Lx * Ly)
 
         # =========================
         # 7. TIME INTEGRATION 
