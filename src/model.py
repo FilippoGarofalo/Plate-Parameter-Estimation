@@ -1,9 +1,28 @@
 import torch
-from torch.utils.checkpoint import checkpoint
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+@torch.jit.script
+def solve_modal_system(G1: torch.Tensor, G2: torch.Tensor, P: torch.Tensor, 
+                       num_samples: int) -> torch.Tensor:
+    
+        num_modes = G1.shape[0]
+        
+        q1 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
+        q2 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
+        y = torch.zeros(num_samples, dtype=G1.dtype, device=G1.device)
+        
+        for n in range(num_samples):
+            fin = 1.0 if n == 0 else 0.0
+            
+            q = G1 * q1 - G2 * q2 + P * fin
+            
+            y[n] = torch.sum(q1)
+            
+            q2 = q1.clone()
+            q1 = q
+        return y
 
 class DifferentiableModalPlate(nn.Module):
 
@@ -113,26 +132,6 @@ class DifferentiableModalPlate(nn.Module):
 
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
-    def solve_modal_system(self, G1: torch.Tensor, G2: torch.Tensor, P: torch.Tensor, 
-                       num_samples: int) -> torch.Tensor:
-    
-        num_modes = G1.shape[0]
-        
-        q1 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
-        q2 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
-        y = torch.zeros(num_samples, dtype=G1.dtype, device=G1.device)
-        
-        for n in range(num_samples):
-            fin = 1.0 if n == 0 else 0.0
-            
-            q = G1 * q1 - G2 * q2 + P * fin
-            
-            y[n] = torch.sum(q1)
-            
-            q2 = q1.clone()
-            q1 = q
-        return y
-    
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
@@ -140,10 +139,10 @@ class DifferentiableModalPlate(nn.Module):
         pi = torch.pi
 
         # =========================
-        # 1. MODAL GRID (dinamica)
+        # 1. MODAL GRID 
         # =========================
-        DDx = 77
-        DDy = 310
+        DDx = 120
+        DDy = 120
 
         m_idx = torch.arange(1, DDx, device=device, dtype=self.dtype)
         n_idx = torch.arange(1, DDy, device=device, dtype=self.dtype)
@@ -209,7 +208,7 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         num_samples = int(self.sample_rate * duration)
         
-        y = self.solve_modal_system(G1, G2, P, num_samples)
+        y = solve_modal_system(G1, G2, P, num_samples)
 
 
         if velCalc:
