@@ -3,6 +3,7 @@ import time
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
+from loss2 import MSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 
@@ -40,7 +41,8 @@ def main():
     optimizer = get_optimizer(active_params ,lr=LR)
     
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
-    criterion.precompute_target_stft(target_ir)
+    #criterion.precompute_target_stft(target_ir)
+    criterion = MSELoss().to(device)
 
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
