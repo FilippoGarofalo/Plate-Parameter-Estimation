@@ -1,11 +1,29 @@
 import torch
 import time
 import numpy as np
+from torch.optim.lr_scheduler import LambdaLR
 from model import DifferentiableModalPlate
 from loss import Loss
 from loss2 import MSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
+
+
+def get_dsp_scheduler(optimizer, warmup_steps=100, decay_steps=1000, min_lr_ratio=0.01):
+
+    def lr_lambda(current_step):
+        #Phase 1
+        if current_step < warmup_steps:
+            return float(current_step) / float(max(1, warmup_steps))
+            
+        #Phase 2:
+        progress = float(current_step - warmup_steps) / float(max(1, decay_steps))
+        progress = min(1.0, progress) 
+            
+        cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
+        return min_lr_ratio + (1.0 - min_lr_ratio) * cosine_decay
+
+    return LambdaLR(optimizer, lr_lambda)
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
@@ -43,7 +61,7 @@ def main():
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
     criterion.precompute_target_stft(target_ir)
     #criterion = MSELoss().to(device)
-
+    scheduler = get_dsp_scheduler(optimizer, warmup_steps=100, decay_steps=num_iterations-100)
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # 3. OPTIMIZATION LOOP
@@ -75,6 +93,8 @@ def main():
 
         # Step 6: Update Parameters
         optimizer.step()
+        scheduler.step()  # Update the learning rate
+        optimizer.zero_grad()
 
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
