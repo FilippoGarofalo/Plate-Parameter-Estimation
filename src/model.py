@@ -144,13 +144,19 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 1. MODAL GRID 
         # =========================
-        term = (-T0_over_mu + torch.sqrt(T0_over_mu**2 + 4 * self.maxOm**2 * D_over_mu)) / (2 * D_over_mu)
-
-        DDx = torch.floor(self.Lx / pi * torch.sqrt(term)).to(torch.int64)
-        DDy = torch.floor(Ly / pi * torch.sqrt(term)).to(torch.int64)
         
-        m_idx = torch.arange(1, DDx, device=device, dtype=self.dtype)
-        n_idx = torch.arange(1, DDy, device=device, dtype=self.dtype)
+        T0_v  = T0_over_mu.item()
+        D_v   = D_over_mu.item()
+        Ly_v  = Ly.item()
+        disc  = T0_v**2 + 4 * self.maxOm**2 * D_v
+        inner = (-T0_v + np.sqrt(max(disc, 0.0))) / (2 * D_v + 1e-12)
+        s     = np.sqrt(max(inner, 0.0))
+        DDx   = max(int(np.floor(1.0  / np.pi * s)) + 1, 1)
+        DDy   = max(int(np.floor(Ly_v / np.pi * s)) + 1, 1)
+
+        # DDx e DDy sono Python int puri — arange funziona correttamente
+        m_idx = torch.arange(1, DDx + 1, device=device, dtype=self.dtype)
+        n_idx = torch.arange(1, DDy + 1, device=device, dtype=self.dtype)
 
         m_grid, n_grid = torch.meshgrid(m_idx, n_idx, indexing='ij')
         m_vec = m_grid.flatten()
