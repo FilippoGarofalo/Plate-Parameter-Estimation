@@ -24,7 +24,6 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
     if waveform.shape[0] > 1:
         waveform = torch.mean(waveform, dim=0, keepdim=True)
         
-    # Resampling
     if sr != target_sr:
         print(f"Resampling from {sr} Hz to {target_sr} Hz")
         resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
@@ -39,24 +38,61 @@ def load_target_audio(filepath: str, target_sr: int = 44100, device: torch.devic
     return waveform.to(device=device, dtype=dtype)
 
 
-def logit(p):
-    p = np.clip(p, 1e-15, 1.0 - 1e-15)
-    return np.log(p / (1.0 - p))
+import numpy as np
+
+def atanh_safe(u):
+    u = np.clip(u, 1e-15, 1.0 - 1e-15)
+    return 0.5 * np.log(u / (1.0 - u))
 
 def inverse_map_range_linear(y, min_v, max_v):
+    """Inverso di map_range_linear"""
     norm_y = (y - min_v) / (max_v - min_v)
-    
-    x_raw = logit(norm_y)
-    
+    x_raw = atanh_safe(norm_y)
     return float(x_raw)
 
 def inverse_map_range_log(y, min_v, max_v):
+    """Inverso di map_range_log"""
+    y = np.clip(y, 1e-15, np.inf)
+    min_v = np.clip(min_v, 1e-15, np.inf)
+    max_v = np.clip(max_v, 1e-15, np.inf)
+    
     log_y = np.log(y)
     log_min = np.log(min_v)
     log_max = np.log(max_v)
     
     norm_y = (log_y - log_min) / (log_max - log_min)
-    
-    x_raw = logit(norm_y)
+    x_raw = atanh_safe(norm_y)
     
     return float(x_raw)
+
+
+def to_norm(x, min_v, max_v, scale=1.0):
+    return min_v + (max_v - min_v) * ((torch.tanh(x * scale) + 1.0) / 2.0)
+
+def map_range_log(x, min_v, max_v, dtype=torch.float32, device='cpu', eps=1e-10):
+    min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
+    max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
+    
+    min_v = torch.clamp(min_v, min=eps)
+    max_v = torch.clamp(max_v, min=eps)
+    
+    norm_x = (torch.tanh(x) + 1.0) / 2.0  # [0, 1]
+    
+    log_min = torch.log(min_v)
+    log_max = torch.log(max_v)
+    val_log = log_min + norm_x * (log_max - log_min)
+    
+    result = torch.exp(val_log)
+    
+    return torch.clamp(result, min=min_v, max=max_v)
+
+
+def map_range_linear(x, min_v, max_v, dtype=torch.float32, device='cpu'):
+    """Mappa linearmente con protezione"""
+    min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
+    max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
+
+    norm_x = (torch.tanh(x) + 1.0) / 2.0
+    result = min_v + norm_x * (max_v - min_v)
+    
+    return torch.clamp(result, min=min_v, max=max_v)

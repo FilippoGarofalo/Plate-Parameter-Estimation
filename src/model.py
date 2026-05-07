@@ -3,6 +3,7 @@ import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from utils import map_range_linear, map_range_log
 
 
 class DifferentiableModalPlate(nn.Module):
@@ -57,59 +58,25 @@ class DifferentiableModalPlate(nn.Module):
                     raise KeyError(f"Missing parameter '{name}' in plate_params")
                 return nn.Parameter(torch.tensor(plate_params[name], dtype=dtype))
 
-        self.mu_raw         = init_param('mu_raw', 0.5)
-        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.5)
-        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.5)
-        self.Ly_raw         = init_param('Ly_raw', 0.5)
-        self.xo_raw         = init_param('xo_raw', 0.5)
-        self.yo_raw         = init_param('yo_raw', 0.5)
+        self.mu_raw         = init_param('mu_raw', 0.0)
+        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.0)
+        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.0)
+        self.Ly_raw         = init_param('Ly_raw', 0.0)
+        self.xo_raw         = init_param('xo_raw', 0.0)
+        self.yo_raw         = init_param('yo_raw', 0.0)
 
     def get_physical_parameters(self):
-        device = self.Lx.device
-        dtype = self.dtype
+        mu = map_range_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device)
+        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device)
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device)
 
-        def to_norm(x):
-            return torch.sigmoid(x)
+        Ly = map_range_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device)
+        xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device)
+        yo = map_range_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly, dtype=self.dtype, device=self.Lx.device)
 
-        def map_range_linear(x, min_v, max_v):
-            min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
-            max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
-
-            norm_x = to_norm(x)
-            return min_v + norm_x * (max_v - min_v)
-
-        def map_range_log(x, min_v, max_v):
-            min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
-            max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
-
-            norm_x = to_norm(x)
-
-            log_min = torch.log(min_v)
-            log_max = torch.log(max_v)
-
-            val_log = log_min + norm_x * (log_max - log_min)
-
-            return torch.exp(val_log)
-
-        # =========================
-        # PARAMETRI FISICI
-        # =========================
-        mu = map_range_log(self.mu_raw, 2.43, 106.15)
-        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188)
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 9.4e-5, 411.52)
-
-        Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
-
-        xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
-        yo = map_range_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
-
-        
-        eps = torch.tensor(1e-12, dtype=dtype, device=device)
-
-        mu = torch.clamp(mu, min=eps)
-        D_over_mu = torch.clamp(D_over_mu, min=eps)
-        T0_over_mu = torch.clamp(T0_over_mu, min=eps)
-        Ly = torch.clamp(Ly, min=eps)
+        assert torch.all(mu > 0) and torch.all(torch.isfinite(mu)), f"mu invalid: {mu}"
+        assert torch.all(D_over_mu > 0) and torch.all(torch.isfinite(D_over_mu)), f"D_over_mu invalid: {D_over_mu}"
+        assert torch.all(T0_over_mu > 0) and torch.all(torch.isfinite(T0_over_mu)), f"T0_over_mu invalid: {T0_over_mu}"
 
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
