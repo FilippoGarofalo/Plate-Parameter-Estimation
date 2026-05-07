@@ -10,10 +10,8 @@ class Loss(nn.Module):
                  fft_sizes=[64, 256, 1024, 4096]):
         super().__init__()
 
-        self.mse_weight = mse_weight
         self.stft_weight = stft_weight
         self.energy_weight = energy_weight
-        self.cutoff_hz = cutoff_hz
         self.sr = sr
         self.fft_sizes = fft_sizes
 
@@ -25,7 +23,7 @@ class Loss(nn.Module):
         self.target_stft_cache = {}  # key: (device, n_fft), value: stft tensor
         self.cached_target_audio = None
 
-        self.eps = 1e-7
+        self.eps = 1e-4
 
     def precompute_target_stft(self, target_audio):
         target_audio = target_audio.squeeze()
@@ -53,11 +51,6 @@ class Loss(nn.Module):
 
         device = pred_audio.device
 
-        # =========================
-        # 1. MSE NORMALIZED
-        # =========================
-        target_var = torch.mean(norm_target**2).clamp_min(self.eps)
-        mse_loss = F.mse_loss(norm_pred, norm_target) / target_var
 
         # =========================
         # 2. ENERGY LOSS
@@ -101,7 +94,6 @@ class Loss(nn.Module):
         # FINAL
         # =========================
         total_loss = (
-            self.mse_weight * mse_loss +
             self.stft_weight * mss_loss +
             self.energy_weight * energy_loss
         )

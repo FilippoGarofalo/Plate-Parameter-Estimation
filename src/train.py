@@ -12,7 +12,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_norm.npz"
+    target_npz_path = "target/ground_truth_test.npz"
     sample_rate = 44100
     num_iterations = 2000
     LR = 0.01
@@ -28,7 +28,7 @@ def main():
     criterion = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
-        energy_weight=0.0,
+        energy_weight=0.1,
         fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
 
@@ -56,7 +56,7 @@ def main():
         # Step 2: Forward Pass
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
-        pred_ir = model(duration=duration, normalize=True, velCalc=False)
+        pred_ir = model(duration=duration, normalize=False, velCalc=False)
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
         loss = criterion(pred_ir, target_ir)
