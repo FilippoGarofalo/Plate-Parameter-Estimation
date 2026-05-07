@@ -12,7 +12,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test.npz"
+    target_npz_path = "target/ground_truth_test_norm.npz"
     sample_rate = 44100
     num_iterations = 2000
     LR = 0.01
