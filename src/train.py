@@ -12,7 +12,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_5.npz"
+    target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate = 44100
     num_iterations = 2000
     LR = 0.01
@@ -28,7 +28,7 @@ def main():
     criterion = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
-        energy_weight=0.1,
+        energy_weight=0.0,
         fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
 
