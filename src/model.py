@@ -1,28 +1,9 @@
 import torch
+import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-@torch.jit.script
-def solve_modal_system(G1: torch.Tensor, G2: torch.Tensor, P: torch.Tensor, 
-                       num_samples: int) -> torch.Tensor:
-    
-        num_modes = G1.shape[0]
-        
-        q1 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
-        q2 = torch.zeros(num_modes, dtype=G1.dtype, device=G1.device)
-        y = torch.zeros(num_samples, dtype=G1.dtype, device=G1.device)
-        
-        for n in range(num_samples):
-            fin = 1.0 if n == 0 else 0.0
-            
-            q = G1 * q1 - G2 * q2 + P * fin
-            
-            y[n] = torch.sum(q1)
-            
-            q2 = q1
-            q1 = q
-        return y
 
 class DifferentiableModalPlate(nn.Module):
 
@@ -132,6 +113,28 @@ class DifferentiableModalPlate(nn.Module):
 
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
+    def solve_modal_system(self, G1: torch.Tensor, G2: torch.Tensor, P: torch.Tensor, 
+                        num_samples: int) -> torch.Tensor:
+        
+        num_modes = G1.shape[0]
+        device = G1.device
+        dtype = G1.dtype
+        
+        x = torch.zeros((num_modes, num_samples), dtype=dtype, device=device)
+        x[:, 0] = 1.0 
+        
+        a0 = torch.ones_like(G1)
+        a_coeffs = torch.stack([a0, -G1, G2], dim=-1) 
+        
+        zeros = torch.zeros_like(P)
+        b_coeffs = torch.stack([zeros, P, zeros], dim=-1) 
+        
+        q_all = torchaudio.functional.lfilter(x, a_coeffs, b_coeffs, clamp=False)
+        
+        y = torch.sum(q_all, dim=0)
+        
+        return y
+    
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
@@ -141,9 +144,11 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 1. MODAL GRID 
         # =========================
-        DDx = 120
-        DDy = 120
+        term = (-T0_over_mu + torch.sqrt(T0_over_mu**2 + 4 * self.maxOm**2 * D_over_mu)) / (2 * D_over_mu)
 
+        DDx = torch.floor(self.Lx / pi * torch.sqrt(term)).to(torch.int64)
+        DDy = torch.floor(Ly / pi * torch.sqrt(term)).to(torch.int64)
+        
         m_idx = torch.arange(1, DDx, device=device, dtype=self.dtype)
         n_idx = torch.arange(1, DDy, device=device, dtype=self.dtype)
 
@@ -208,7 +213,7 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         num_samples = int(self.sample_rate * duration)
         
-        y = solve_modal_system(G1, G2, P, num_samples)
+        y = self.solve_modal_system(G1, G2, P, num_samples)
 
 
         if velCalc:
