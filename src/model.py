@@ -57,59 +57,35 @@ class DifferentiableModalPlate(nn.Module):
                     raise KeyError(f"Missing parameter '{name}' in plate_params")
                 return nn.Parameter(torch.tensor(plate_params[name], dtype=dtype))
 
-        self.mu_raw         = init_param('mu_raw', 0.5)
-        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.5)
-        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.5)
-        self.Ly_raw         = init_param('Ly_raw', 0.5)
-        self.xo_raw         = init_param('xo_raw', 0.5)
-        self.yo_raw         = init_param('yo_raw', 0.5)
+        self.mu_raw         = init_param('mu_raw', 0.0)
+        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.0)
+        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.0)
+        self.Ly_raw         = init_param('Ly_raw', 0.0)
+        self.xo_raw         = init_param('xo_raw', 0.0)
+        self.yo_raw         = init_param('yo_raw', 0.0)
 
     def get_physical_parameters(self):
-        device = self.Lx.device
-        dtype = self.dtype
+        def map_range_linear(x, min_v, max_v, scale=1.0):
+            return min_v + (max_v - min_v) * ((torch.tanh(x * scale) + 1.0) / 2.0)
 
-        def to_norm(x):
-            return torch.sigmoid(x)
+        def map_range_log(x, min_v, max_v, scale=1.0):
+            norm_x = (torch.tanh(x * scale) + 1.0) / 2.0
+            log_min = np.log10(min_v)
+            log_max = np.log10(max_v)
+            log_val = log_min + (log_max - log_min) * norm_x
+            return 10.0 ** log_val
 
-        def map_range_linear(x, min_v, max_v):
-            min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
-            max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
-
-            norm_x = to_norm(x)
-            return min_v + norm_x * (max_v - min_v)
-
-        def map_range_log(x, min_v, max_v):
-            min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
-            max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
-
-            norm_x = to_norm(x)
-
-            log_min = torch.log(min_v)
-            log_max = torch.log(max_v)
-
-            val_log = log_min + norm_x * (log_max - log_min)
-
-            return torch.exp(val_log)
-
-        # =========================
-        # PARAMETRI FISICI
-        # =========================
         mu = map_range_log(self.mu_raw, 2.43, 106.15)
+
+        D_over_mu = map_range_log(self.D_over_mu_raw, 0.05, 1005.9)
         D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188)
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 9.4e-5, 411.52)
+
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.1, 411.52)
+        T0_over_mu = map_range_log(self.T0_over_mu_raw, 0.000094, 411.52, scale=0.1)
 
         Ly = map_range_linear(self.Ly_raw, 1.1, 4.0)
-
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx)
         yo = map_range_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly)
-
-        
-        eps = torch.tensor(1e-12, dtype=dtype, device=device)
-
-        mu = torch.clamp(mu, min=eps)
-        D_over_mu = torch.clamp(D_over_mu, min=eps)
-        T0_over_mu = torch.clamp(T0_over_mu, min=eps)
-        Ly = torch.clamp(Ly, min=eps)
 
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
