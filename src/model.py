@@ -20,14 +20,14 @@ def solve_modal_system(G1: torch.Tensor, G2: torch.Tensor, P: torch.Tensor,
             
             y[n] = torch.sum(q1)
             
-            q2 = q1.clone()
+            q2 = q1
             q1 = q
         return y
 
 class DifferentiableModalPlate(nn.Module):
 
     def __init__(self, sample_rate: int = 44100, plate_params: dict = None,
-             dtype: torch.dtype = torch.float32):
+             dtype: torch.dtype = torch.float64):
         super(DifferentiableModalPlate, self).__init__()
 
         import math
