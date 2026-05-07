@@ -23,7 +23,7 @@ class Loss(nn.Module):
         self.target_stft_cache = {}  # key: (device, n_fft), value: stft tensor
         self.cached_target_audio = None
 
-        self.eps = 1e-4
+        self.eps = 1e-9
 
     def precompute_target_stft(self, target_audio):
         target_audio = target_audio.squeeze()

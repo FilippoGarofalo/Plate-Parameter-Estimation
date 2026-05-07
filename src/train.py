@@ -12,7 +12,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test.npz"
+    target_npz_path = "target/ground_truth_test_5.npz"
     sample_rate = 44100
     num_iterations = 2000
     LR = 0.01
@@ -41,8 +41,8 @@ def main():
     optimizer = get_optimizer(active_params ,lr=LR)
     
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
-    #criterion.precompute_target_stft(target_ir)
-    criterion = MSELoss().to(device)
+    criterion.precompute_target_stft(target_ir)
+    #criterion = MSELoss().to(device)
 
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 

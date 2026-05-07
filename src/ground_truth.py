@@ -2,7 +2,7 @@ import numpy as np
 import os
 from ModalPlate import ModalPlate
 
-def generate_custom_target(filename="ground_truth_test.npz"):
+def generate_custom_target(filename="ground_truth_test_5.npz"):
     
     gt_params = {
         'Lx': 1.0,           # Fisso
