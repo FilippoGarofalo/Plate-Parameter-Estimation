@@ -26,8 +26,7 @@ def main():
     # 2. INITIALIZE MODULES
     model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
     criterion = Loss(
-        mse_weight=0.0,
-        stft_weight=1.0,
+        stft_weight=10.0,
         energy_weight=0.1,
         fft_sizes=[64, 256, 1024, 4096]
        ).to(device)
@@ -41,8 +40,8 @@ def main():
     optimizer = get_optimizer(active_params ,lr=LR)
     
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
-    #criterion.precompute_target_stft(target_ir)
-    criterion = MSELoss().to(device)
+    criterion.precompute_target_stft(target_ir)
+    #criterion = MSELoss().to(device)
 
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 

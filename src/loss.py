@@ -4,9 +4,9 @@ import torch.nn.functional as F
 
 class Loss(nn.Module):
 
-    def __init__(self, mse_weight=0.0, stft_weight=1.0,
+    def __init__(self, stft_weight=1.0,
                  energy_weight=0.0,
-                 cutoff_hz=200.0, sr=44100,
+                  sr=44100,
                  fft_sizes=[64, 256, 1024, 4096]):
         super().__init__()
 
@@ -23,7 +23,7 @@ class Loss(nn.Module):
         self.target_stft_cache = {}  # key: (device, n_fft), value: stft tensor
         self.cached_target_audio = None
 
-        self.eps = 1e-4
+        self.eps = 1e-9
 
     def precompute_target_stft(self, target_audio):
         target_audio = target_audio.squeeze()
@@ -43,11 +43,6 @@ class Loss(nn.Module):
             self.target_stft_cache[(device, n_fft)] = target_stft
     
     def forward(self, pred_audio, target_audio):
-        peak = torch.max(torch.abs(target_audio)) + 1e-8
-        norm_target = target_audio / peak
-        norm_pred = pred_audio / peak
-        pred_audio = pred_audio.squeeze()
-        target_audio = target_audio.squeeze()
 
         device = pred_audio.device
 
