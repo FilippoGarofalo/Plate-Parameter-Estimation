@@ -42,7 +42,7 @@ def main():
     
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
     #criterion.precompute_target_stft(target_ir)
-    criterion = MSELoss().to(device)
+    #criterion = MSELoss().to(device)
 
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
