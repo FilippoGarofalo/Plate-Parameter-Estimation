@@ -153,8 +153,7 @@ class DifferentiableModalPlate(nn.Module):
             s     = np.sqrt(max(inner, 0.0))
             DDx   = max(int(np.floor(1.0  / np.pi * s)) + 1, 1)
             DDy   = max(int(np.floor(Ly_v / np.pi * s)) + 1, 1)
-
-        # DDx e DDy sono Python int puri — arange funziona correttamente
+        print(f"Modal grid size: {DDx} x {DDy} = {DDx * DDy} modes")
         m_idx = torch.arange(1, DDx + 1, device=device, dtype=self.dtype)
         n_idx = torch.arange(1, DDy + 1, device=device, dtype=self.dtype)
 
