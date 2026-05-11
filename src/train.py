@@ -14,7 +14,7 @@ def main():
     
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate = 44100
-    num_iterations = 2000
+    num_iterations = 1000
     LR = 0.01
     dtype = torch.float64
 

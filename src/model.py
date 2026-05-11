@@ -2,8 +2,7 @@ import torch
 import torchaudio
 import torch.nn as nn
 import numpy as np
-from utils import map_range_linear, map_range_log, map_softplus_linear, map_softplus_log
-
+from utils import map_range_linear, map_range_log, map_softplus_linear, map_softplus_log, map_sigm_linear,map_sigm_log
 class DifferentiableModalPlate(nn.Module):
 
     def __init__(self, sample_rate: int = 44100, plate_params: dict = None,
@@ -54,21 +53,21 @@ class DifferentiableModalPlate(nn.Module):
                     raise KeyError(f"Missing parameter '{name}' in plate_params")
                 return nn.Parameter(torch.tensor(plate_params[name], dtype=dtype))
 
-        self.mu_raw         = init_param('mu_raw', 0.0)
-        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.0)
-        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.0)
-        self.Ly_raw         = init_param('Ly_raw', 0.0)
-        self.xo_raw         = init_param('xo_raw', 0.0)
-        self.yo_raw         = init_param('yo_raw', 0.0)
+        self.mu_raw         = init_param('mu_raw', 0.5)
+        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.5)
+        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.5)
+        self.Ly_raw         = init_param('Ly_raw', 0.5)
+        self.xo_raw         = init_param('xo_raw', 0.5)
+        self.yo_raw         = init_param('yo_raw', 0.5)
 
     def get_physical_parameters(self):
-        mu = map_range_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        D_over_mu = map_range_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        T0_over_mu = map_range_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        mu = map_sigm_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        D_over_mu = map_sigm_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        T0_over_mu = map_sigm_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=1.0)
 
-        Ly = map_range_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        yo = map_range_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        Ly = map_sigm_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        xo = map_sigm_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        yo = map_sigm_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly, dtype=self.dtype, device=self.Lx.device, weight=1.0)
 
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     

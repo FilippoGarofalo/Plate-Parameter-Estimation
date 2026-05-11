@@ -35,13 +35,12 @@ def plot_training_progress(checkpoint_path="target/train_progress.npz"):
     E = 6.7e10
     nu = 0.25
 
-    target_mu = rho * h
-    target_D = (E * h**3) / (12 * (1 - nu**2))
-    target_D_mu = target_D / target_mu
-    target_T0_mu = T0 / target_mu
-    target_Ly = Ly
-    target_xo = 0.61 * Lx
-    target_yo = 0.61 * Ly
+    target_mu = 19.625000
+    target_D_mu = 14.154282
+    target_T0_mu = 22.929936
+    target_Ly = 2.2500
+    target_xo = 0.7500
+    target_yo = 1.8450
 
     targets = {
         'mu': target_mu,

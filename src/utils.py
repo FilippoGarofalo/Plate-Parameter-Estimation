@@ -165,3 +165,49 @@ def inverse_map_softplus_log(y, min_v, max_v):
     x_raw = inverse_softplus_safe(norm_y)
     
     return float(x_raw)
+
+def inverse_softplus(y): 
+    # If y is large, the inverse is practically just y itself
+    if y > 20.0:
+        return float(y)
+    # Otherwise, do the normal inverse math safely
+    return float(np.log(np.exp(y) - 1.0))
+
+def inverse_map_sigm_linear(y, min_v, max_v, scale=1.0):
+    norm_y = (y - min_v) / (max_v - min_v)
+    
+    norm_y_mapped = 2.0 * norm_y - 1.0
+    
+    norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
+    
+    x_raw = np.arctanh(norm_y_mapped) / scale
+    
+    return float(x_raw)
+
+def inverse_map_sigm_log(y, min_v, max_v, scale=1.0):
+    log_y = np.log10(y)
+    log_min = np.log10(min_v)
+    log_max = np.log10(max_v)
+    
+    norm_y = (log_y - log_min) / (log_max - log_min)
+    
+    norm_y_mapped = 2.0 * norm_y - 1.0
+    
+    norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
+    
+    x_raw = np.arctanh(norm_y_mapped) / scale
+    
+    return float(x_raw)
+
+def to_norm(x):
+    return torch.sigmoid(x)
+
+def map_sigm_linear(x, min_v, max_v):
+    norm_x = to_norm(x)
+    return min_v + norm_x * (max_v - min_v)
+
+def map_sigm_log(x, min_v, max_v):
+    norm_x = to_norm(x)
+    log_min = np.log10(min_v)
+    log_max = np.log10(max_v)
+    return 10.0 ** (log_min + norm_x * (log_max - log_min))
