@@ -142,18 +142,6 @@ class DifferentiableModalPlate(nn.Module):
         omega = torch.sqrt(torch.clamp(omega_sq, min=0.0))
 
         # =========================
-        # 3. APPLY LOW-FREQ RULE 
-        # =========================
-        #omega = torch.where(omega < 20 * 2 * pi, self.maxOm + 1000.0, omega)  #Removed as in the ModalPlate
-
-        # =========================
-        # 4. SORT 
-        # =========================
-        omega, sort_idx = torch.sort(omega, stable=True)
-        m_vec = m_vec[sort_idx]
-        n_vec = n_vec[sort_idx]
-
-        # =========================
         # 5. TRUNCATE 
         # =========================
         valid = omega <= self.maxOm

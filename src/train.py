@@ -1,6 +1,7 @@
 import torch
 import time
 import numpy as np
+import math
 from torch.optim.lr_scheduler import LambdaLR
 from model import DifferentiableModalPlate
 from loss import Loss
@@ -9,7 +10,7 @@ from utils import load_challenge_npz
 from optimizer import get_optimizer
 
 
-def get_dsp_scheduler(optimizer, warmup_steps=100, decay_steps=1000, min_lr_ratio=0.01):
+def get_dsp_scheduler(optimizer, warmup_steps=150, decay_steps=1000, min_lr_ratio=0.01):
 
     def lr_lambda(current_step):
         #Phase 1
@@ -33,8 +34,8 @@ def main():
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate = 44100
     num_iterations = 2000
-    LR = 0.01
-    dtype = torch.float32
+    LR = 0.001
+    dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
@@ -61,7 +62,7 @@ def main():
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
     criterion.precompute_target_stft(target_ir)
     #criterion = MSELoss().to(device)
-    scheduler = get_dsp_scheduler(optimizer, warmup_steps=100, decay_steps=num_iterations-100)
+    scheduler = get_dsp_scheduler(optimizer, warmup_steps=150, decay_steps=num_iterations-150)
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # 3. OPTIMIZATION LOOP
@@ -83,9 +84,6 @@ def main():
         if iteration == 0: 
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
         loss.backward()
-
-        # Step 5: Gradient Clipping (Crucial for stability with Adam and physical parameters)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         if iteration == 0:
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
