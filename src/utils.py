@@ -175,28 +175,19 @@ def inverse_softplus(y):
 
 def inverse_map_sigm_linear(y, min_v, max_v, scale=1.0):
     norm_y = (y - min_v) / (max_v - min_v)
-    
-    norm_y_mapped = 2.0 * norm_y - 1.0
-    
-    norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
-    
-    x_raw = np.arctanh(norm_y_mapped) / scale
-    
+    norm_y = np.clip(norm_y, 1e-6, 1.0 - 1e-6)
+    x_raw = np.log(norm_y / (1.0 - norm_y)) / scale
     return float(x_raw)
 
 def inverse_map_sigm_log(y, min_v, max_v, scale=1.0):
     log_y = np.log10(y)
     log_min = np.log10(min_v)
     log_max = np.log10(max_v)
-    
+
     norm_y = (log_y - log_min) / (log_max - log_min)
-    
-    norm_y_mapped = 2.0 * norm_y - 1.0
-    
-    norm_y_mapped = np.clip(norm_y_mapped, -0.999999, 0.999999)
-    
-    x_raw = np.arctanh(norm_y_mapped) / scale
-    
+    norm_y = np.clip(norm_y, 1e-6, 1.0 - 1e-6)
+
+    x_raw = np.log(norm_y / (1.0 - norm_y)) / scale
     return float(x_raw)
 
 def to_norm(x):
