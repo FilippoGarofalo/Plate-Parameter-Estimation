@@ -55,8 +55,8 @@ class DifferentiableModalPlate(nn.Module):
 
         self.mu_raw         = init_param('mu_raw', 0.5)
         self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.5)
-        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.5)
-        self.Ly_raw         = init_param('Ly_raw', 0.5)
+        self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.9)
+        self.Ly_raw         = init_param('Ly_raw', 0.0)
         self.xo_raw         = init_param('xo_raw', 0.5)
         self.yo_raw         = init_param('yo_raw', 0.5)
 
@@ -73,10 +73,7 @@ class DifferentiableModalPlate(nn.Module):
     
     def solve_modal_system(self, omega: torch.Tensor, sigma: torch.Tensor, P: torch.Tensor, 
                            num_samples: int) -> torch.Tensor:
-        """
-        Analytic impulse response solver. Replaces numerically unstable and
-        gradient-vanishing `lfilter` with exact closed-form damped sinusoids.
-        """
+    
         device = omega.device
         dtype = omega.dtype
         
