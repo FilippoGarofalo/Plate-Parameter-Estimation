@@ -15,7 +15,7 @@ def main():
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate = 44100
     num_iterations = 2000
-    LR = 0.01
+    LR = 0.001
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -24,7 +24,33 @@ def main():
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
     # 2. INITIALIZE MODULES
-    model = DifferentiableModalPlate(sample_rate=sample_rate, plate_params=None, dtype=dtype).to(device)
+    target_mu = 19.625000
+    target_D_mu = 14.154282
+    target_T0_mu = 22.929936
+    Ly_target = 2.2500
+    Lx_target = 1.0  # From your fixed params
+    target_xo = 0.7500
+    target_yo = 1.8450
+
+    from utils import (inverse_map_softplus_linear, inverse_map_softplus_log, 
+                       inverse_map_range_linear)
+
+    perfect_initial_guess = {
+        'mu_raw':         inverse_map_softplus_linear(target_mu, 2.43, 106.15),
+        'D_over_mu_raw':  inverse_map_softplus_log(target_D_mu, 0.2805, 201.188),
+        'T0_over_mu_raw': inverse_map_softplus_log(target_T0_mu, 9.4e-5, 411.52),
+        'Ly_raw':         inverse_map_range_linear(Ly_target, 1.1, 4.0),
+        'xo_raw':         inverse_map_range_linear(target_xo, 0.51 * Lx_target, 1.0 * Lx_target),
+        'yo_raw':         inverse_map_range_linear(target_yo, 0.51 * Ly_target, 1.0 * Ly_target),
+    }
+
+    # Initialize model with the perfect guess
+    model = DifferentiableModalPlate(
+        sample_rate=sample_rate, 
+        plate_params=perfect_initial_guess, 
+        dtype=dtype
+    ).to(device)
+    
     criterion = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
