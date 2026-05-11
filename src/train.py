@@ -23,31 +23,9 @@ def main():
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
-    # 2. INITIALIZE MODULES
-    target_mu = 19.625000
-    target_D_mu = 14.154282
-    target_T0_mu = 22.929936
-    Ly_target = 2.2500
-    Lx_target = 1.0  # From your fixed params
-    target_xo = 0.7500
-    target_yo = 1.8450
-
-    from utils import (inverse_map_softplus_linear, inverse_map_softplus_log, 
-                       inverse_map_range_linear, inverse_map_range_log)
-
-    perfect_initial_guess = {
-        'mu_raw':         inverse_map_range_log(target_mu, 2.43, 106.15),
-        'D_over_mu_raw':  inverse_map_range_log(target_D_mu, 0.2805, 201.188),
-        'T0_over_mu_raw': inverse_map_range_log(target_T0_mu, 9.4e-5, 411.52),
-        'Ly_raw':         inverse_map_range_linear(Ly_target, 1.1, 4.0),
-        'xo_raw':         inverse_map_range_linear(target_xo, 0.51 * Lx_target, 1.0 * Lx_target),
-        'yo_raw':         inverse_map_range_linear(target_yo, 0.51 * Ly_target, 1.0 * Ly_target),
-    }
-
     # Initialize model with the perfect guess
     model = DifferentiableModalPlate(
         sample_rate=sample_rate, 
-        plate_params=perfect_initial_guess, 
         dtype=dtype
     ).to(device)
     
@@ -55,7 +33,7 @@ def main():
         mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024]
+        fft_sizes=[64, 128, 256, 1024, 4096]
        ).to(device)
 
     #model.Ly_raw.requires_grad = False
