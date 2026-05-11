@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from model import DifferentiableModalPlate
 from ModalPlate import ModalPlate
-from utils import inverse_map_range_linear, inverse_map_range_log, inverse_map_softplus_linear, inverse_map_softplus_log
+import torch
 
 sample_rate = 44100
 duration = 1.0
@@ -42,14 +42,31 @@ custom_params = {
 }
 
 
-perfect_initial_guess = {
-    'mu_raw':         inverse_map_softplus_log(target_mu, 2.43, 106.15),
-    'D_over_mu_raw':  inverse_map_softplus_log(target_D_mu, 0.2805, 201.188),
-    'T0_over_mu_raw': inverse_map_softplus_log(target_T0_mu, 0.000094, 411.52),
+def _logit(x: torch.Tensor) -> torch.Tensor:
+    return torch.log(x / (1.0 - x))
 
-    'Ly_raw': inverse_map_range_linear(Ly,        1.1,       4.0),
-    'xo_raw': inverse_map_range_linear(target_xo, 0.51 * Lx, 1.0 * Lx),
-    'yo_raw': inverse_map_range_linear(target_yo, 0.51 * Ly, 1.0 * Ly),
+def _clamp01(x: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+    return torch.clamp(x, min=eps, max=1.0 - eps)
+
+def inv_map_sigm_linear(y: float, min_v: float, max_v: float) -> float:
+    y_t = torch.tensor(y, dtype=torch.float64)
+    norm = (y_t - min_v) / (max_v - min_v)
+    return _logit(_clamp01(norm)).item()
+
+def inv_map_sigm_log(y: float, min_v: float, max_v: float) -> float:
+    y_t = torch.tensor(y, dtype=torch.float64)
+    log_min = torch.log10(torch.tensor(min_v, dtype=torch.float64))
+    log_max = torch.log10(torch.tensor(max_v, dtype=torch.float64))
+    norm = (torch.log10(y_t) - log_min) / (log_max - log_min)
+    return _logit(_clamp01(norm)).item()
+
+perfect_initial_guess = {
+    'mu_raw': inv_map_sigm_log(target_mu, 2.43, 106.15),
+    'D_over_mu_raw': inv_map_sigm_log(target_D_mu, 0.2805, 201.188),
+    'T0_over_mu_raw': inv_map_sigm_log(target_T0_mu, 0.000094, 411.52),
+    'Ly_raw': inv_map_sigm_linear(Ly, 1.1, 4.0),
+    'xo_raw': inv_map_sigm_linear(target_xo, 0.51 * Lx, 1.0 * Lx),
+    'yo_raw': inv_map_sigm_linear(target_yo, 0.51 * Ly, 1.0 * Ly),
 }
 
 def get_ir():
