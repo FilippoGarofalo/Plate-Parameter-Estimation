@@ -90,3 +90,78 @@ def map_range_linear(x, min_v, max_v, dtype=torch.float32, device='cpu', weight=
     result = min_v + norm_x * (max_v - min_v)
     
     return torch.clamp(result, min=min_v, max=max_v)
+
+
+import torch.nn.functional as F
+
+# ==========================================
+# SOFTPLUS FORWARD MAPPINGS
+# ==========================================
+
+def map_softplus_linear(x, min_v, max_v, dtype=torch.float32, device='cpu', weight=1.0):
+    """
+    Linear mapping using Softplus. 
+    Strictly bounds the minimum at min_v, but allows unbounded growth upwards.
+    The difference (max_v - min_v) acts as a physical scaling factor.
+    """
+    min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
+    max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
+
+    # Maps x to (0, +inf) smoothly
+    norm_x = F.softplus(x * weight)
+    
+    # Scale up by the expected physical range
+    result = min_v + norm_x * (max_v - min_v)
+    
+    return result
+
+def map_softplus_log(x, min_v, max_v, dtype=torch.float32, device='cpu', weight=1.0, eps=1e-10):
+    """
+    Logarithmic mapping using Softplus.
+    Best for parameters like density (mu) or stiffness (D/mu) that need to 
+    remain strictly positive and span multiple orders of magnitude.
+    """
+    min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
+    max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
+    
+    min_v = torch.clamp(min_v, min=eps)
+    max_v = torch.clamp(max_v, min=eps)
+    
+    # Maps x to (0, +inf) smoothly
+    norm_x = F.softplus(x * weight)
+    
+    log_min = torch.log(min_v)
+    log_max = torch.log(max_v)
+    
+    # Apply the scaling factor in the logarithmic domain
+    val_log = log_min + norm_x * (log_max - log_min)
+    
+    result = torch.exp(val_log)
+    
+    return result
+
+def inverse_softplus_safe(u):
+    """Inverse of softplus function y = log(exp(x) - 1)."""
+    u = np.clip(u, 1e-15, np.inf)
+    if u > 20.0:
+        return u
+    return np.log(np.exp(u) - 1.0)
+
+def inverse_map_softplus_linear(y, min_v, max_v):
+    norm_y = (y - min_v) / (max_v - min_v)
+    x_raw = inverse_softplus_safe(norm_y)
+    return float(x_raw)
+
+def inverse_map_softplus_log(y, min_v, max_v):
+    y = np.clip(y, 1e-15, np.inf)
+    min_v = np.clip(min_v, 1e-15, np.inf)
+    max_v = np.clip(max_v, 1e-15, np.inf)
+    
+    log_y = np.log(y)
+    log_min = np.log(min_v)
+    log_max = np.log(max_v)
+    
+    norm_y = (log_y - log_min) / (log_max - log_min)
+    x_raw = inverse_softplus_safe(norm_y)
+    
+    return float(x_raw)

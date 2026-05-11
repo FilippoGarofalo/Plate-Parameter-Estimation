@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from model import DifferentiableModalPlate
 from ModalPlate import ModalPlate
-from utils import inverse_map_range_linear, inverse_map_range_log
+from utils import inverse_map_range_linear, inverse_map_range_log, inverse_map_softplus_linear, inverse_map_softplus_log
 
 sample_rate = 44100
 duration = 1.0
@@ -43,13 +43,13 @@ custom_params = {
 
 
 perfect_initial_guess = {
-    'mu_raw':         inverse_map_range_log(target_mu, 2.43, 106.15),
-    'D_over_mu_raw':  inverse_map_range_log(target_D_mu, 0.2805, 201.188),
-    'T0_over_mu_raw': inverse_map_range_log(target_T0_mu, 0.000094, 411.52),
+    'mu_raw':         inverse_map_softplus_log(target_mu, 2.43, 106.15),
+    'D_over_mu_raw':  inverse_map_softplus_log(target_D_mu, 0.2805, 201.188),
+    'T0_over_mu_raw': inverse_map_softplus_log(target_T0_mu, 0.000094, 411.52),
 
-    'Ly_raw': inverse_map_range_linear(Ly,        1.1,       4.0),
-    'xo_raw': inverse_map_range_linear(target_xo, 0.51 * Lx, 1.0 * Lx),
-    'yo_raw': inverse_map_range_linear(target_yo, 0.51 * Ly, 1.0 * Ly),
+    'Ly_raw': inverse_map_softplus_linear(Ly,        1.1,       4.0),
+    'xo_raw': inverse_map_softplus_linear(target_xo, 0.51 * Lx, 1.0 * Lx),
+    'yo_raw': inverse_map_softplus_linear(target_yo, 0.51 * Ly, 1.0 * Ly),
 }
 
 def get_ir():
