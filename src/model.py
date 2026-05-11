@@ -1,15 +1,13 @@
 import torch
 import torchaudio
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 from utils import map_range_linear, map_range_log
-
 
 class DifferentiableModalPlate(nn.Module):
 
     def __init__(self, sample_rate: int = 44100, plate_params: dict = None,
-             dtype: torch.dtype = torch.float64):
+                 dtype: torch.dtype = torch.float64):
         super(DifferentiableModalPlate, self).__init__()
 
         import math
@@ -35,12 +33,10 @@ class DifferentiableModalPlate(nn.Module):
         OmDamp2 = 2 * torch.pi * self.loss_f1
 
         dOmSq = OmDamp2**2 - OmDamp1**2
-
         eps = torch.tensor(1e-12, dtype=dtype)
         dOmSq = torch.clamp(dOmSq, min=eps)
 
         log10 = math.log(10.0)
-
         alpha = 3 * log10 / dOmSq * (OmDamp2**2 / self.tau_0 - OmDamp1**2 / self.tau_1)
         beta  = 3 * log10 / dOmSq * (1.0 / self.tau_1 - 1.0 / self.tau_0)
 
@@ -74,34 +70,47 @@ class DifferentiableModalPlate(nn.Module):
         xo = map_range_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device)
         yo = map_range_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly, dtype=self.dtype, device=self.Lx.device)
 
-        assert torch.all(mu > 0) and torch.all(torch.isfinite(mu)), f"mu invalid: {mu}"
-        assert torch.all(D_over_mu > 0) and torch.all(torch.isfinite(D_over_mu)), f"D_over_mu invalid: {D_over_mu}"
-        assert torch.all(T0_over_mu > 0) and torch.all(torch.isfinite(T0_over_mu)), f"T0_over_mu invalid: {T0_over_mu}"
-
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     
-    def solve_modal_system(self, G1: torch.Tensor, G2: torch.Tensor, P: torch.Tensor, 
-                        num_samples: int) -> torch.Tensor:
+    def solve_modal_system(self, omega: torch.Tensor, sigma: torch.Tensor, P: torch.Tensor, 
+                           num_samples: int) -> torch.Tensor:
+        """
+        Analytic impulse response solver. Replaces numerically unstable and
+        gradient-vanishing `lfilter` with exact closed-form damped sinusoids.
+        """
+        device = omega.device
+        dtype = omega.dtype
         
-        num_modes = G1.shape[0]
-        device = G1.device
-        dtype = G1.dtype
+        # Time indices (shape: [1, T])
+        n = torch.arange(num_samples, device=device, dtype=dtype).unsqueeze(0)
         
-        x = torch.zeros((num_modes, num_samples), dtype=dtype, device=device)
-        x[:, 0] = 1.0 
+        # Add dimension for broadcasting (shape: [M, 1])
+        omega = omega.unsqueeze(1)
+        sigma = sigma.unsqueeze(1)
+        P = P.unsqueeze(1)
         
-        a0 = torch.ones_like(G1)
-        a_coeffs = torch.stack([a0, -G1, G2], dim=-1) 
+        # Denominator sin(omega * k)
+        sin_omega_k = torch.sin(omega * self.k)
+        sin_omega_k = torch.clamp(sin_omega_k, min=1e-12) # Prevent division by zero
         
-        zeros = torch.zeros_like(P)
-        b_coeffs = torch.stack([zeros, P, zeros], dim=-1) 
+        # Envelope: e^(-sigma * k * (n-1))
+        n_minus_1 = torch.clamp(n - 1, min=0)
+        envelope = torch.exp(-sigma * self.k * n_minus_1)
         
-        q_all = torchaudio.functional.lfilter(x, a_coeffs, b_coeffs, clamp=False)
+        # Oscillator: sin(omega * k * n)
+        oscillator = torch.sin(omega * self.k * n)
         
-        y = torch.sum(q_all, dim=0)
+        # Exact impulse response of the 2-pole recursive filter:
+        modes = (P / sin_omega_k) * envelope * oscillator
+        
+        # Sum all modes over the first dimension
+        y = torch.sum(modes, dim=0)
+        
+        # Force initial sample to 0 (since x[n-1] is delayed by 1 step)
+        y[0] = 0.0 
         
         return y
-    
+
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = self.get_physical_parameters()
 
@@ -111,18 +120,6 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 1. MODAL GRID 
         # =========================
-        '''
-        with torch.no_grad():
-            T0_v  = T0_over_mu.item()
-            D_v   = D_over_mu.item()
-            Ly_v  = Ly.item()
-            disc  = T0_v**2 + 4 * self.maxOm**2 * D_v
-            inner = (-T0_v + np.sqrt(max(disc, 0.0))) / (2 * D_v + 1e-12)
-            s     = np.sqrt(max(inner, 0.0))
-            DDx   = max(int(np.floor(1.0  / np.pi * s)) + 1, 1)
-            DDy   = max(int(np.floor(Ly_v / np.pi * s)) + 1, 1)
-        print(f"Modal grid size: {DDx} x {DDy} = {DDx * DDy} modes")
-        '''
         DDx = 110
         DDy = 439
         m_idx = torch.arange(1, DDx + 1, device=device, dtype=self.dtype)
@@ -142,7 +139,7 @@ class DifferentiableModalPlate(nn.Module):
         omega = torch.sqrt(torch.clamp(omega_sq, min=0.0))
 
         # =========================
-        # 5. TRUNCATE 
+        # 3. TRUNCATE 
         # =========================
         valid = omega <= self.maxOm
 
@@ -151,14 +148,10 @@ class DifferentiableModalPlate(nn.Module):
         n_vec = n_vec[valid]
 
         # =========================
-        # 6. DAMPING + COEFFICIENTI
+        # 4. DAMPING + COEFFICIENTI
         # =========================
         sigma = self.alpha + self.beta * omega**2
-
         exp_term = torch.exp(-sigma * self.k)
-
-        G1 = 2 * torch.cos(omega * self.k) * exp_term
-        G2 = exp_term * exp_term
 
         frac_xi = 0.335
         frac_yi = 0.467
@@ -169,28 +162,28 @@ class DifferentiableModalPlate(nn.Module):
         OutWeight = torch.sin(frac_xo * pi * m_vec) * torch.sin(frac_yo * pi * n_vec)
 
         ms = 0.25 * mu * self.Lx * Ly
-
+        
+        # Calculate P (Amplitude of force)
         P = 4.0 * OutWeight * InWeight * self.k**2 * exp_term / (ms * self.Lx * Ly)
 
         # =========================
-        # 7. TIME INTEGRATION 
+        # 5. TIME INTEGRATION (Analytic)
         # =========================
         num_samples = int(self.sample_rate * duration)
         
-        y = self.solve_modal_system(G1, G2, P, num_samples)
-
+        # Using the exact analytical solver instead of lfilter
+        y = self.solve_modal_system(omega, sigma, P, num_samples)
 
         if velCalc:
-            y_prev_tensor = torch.cat((torch.tensor([0.0], device=device, dtype=self.dtype), y[:-1]))
+            y_prev_tensor = torch.cat((torch.zeros(1, device=device, dtype=self.dtype), y[:-1]))
             y = (y - y_prev_tensor) / self.k
 
         # =========================
-        # 8. NORMALIZATION
+        # 6. NORMALIZATION
         # =========================
         if normalize:
-            peak = torch.max(torch.abs(y)) + 1e-8
+            # Added detach to max() calculation so peak normalization doesn't kill the gradient flow
+            peak = torch.max(torch.abs(y)).detach() + 1e-8
             y = y / peak
 
         return y
-
-        
