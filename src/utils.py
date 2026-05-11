@@ -202,12 +202,14 @@ def inverse_map_sigm_log(y, min_v, max_v, scale=1.0):
 def to_norm(x):
     return torch.sigmoid(x)
 
-def map_sigm_linear(x, min_v, max_v):
+def map_sigm_linear(x, min_v, max_v, dtype=torch.float32, device='cpu', weight=1.0):
     norm_x = to_norm(x)
-    return min_v + norm_x * (max_v - min_v)
-
-def map_sigm_log(x, min_v, max_v):
+    res = min_v + norm_x * (max_v - min_v)
+    return res
+   
+def map_sigm_log(x, min_v, max_v, dtype=torch.float32, device='cpu', weight=1.0, eps=1e-10):
     norm_x = to_norm(x)
     log_min = np.log10(min_v)
     log_max = np.log10(max_v)
-    return 10.0 ** (log_min + norm_x * (log_max - log_min))
+    result = 10.0 ** (log_min + norm_x * (log_max - log_min))
+    return result
