@@ -15,7 +15,7 @@ def main():
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate = 44100
     num_iterations = 2000
-    LR = 0.001
+    LR = 0.01
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -33,12 +33,12 @@ def main():
     target_yo = 1.8450
 
     from utils import (inverse_map_softplus_linear, inverse_map_softplus_log, 
-                       inverse_map_range_linear)
+                       inverse_map_range_linear, inverse_map_range_log)
 
     perfect_initial_guess = {
-        'mu_raw':         inverse_map_softplus_linear(target_mu, 2.43, 106.15),
-        'D_over_mu_raw':  inverse_map_softplus_log(target_D_mu, 0.2805, 201.188),
-        'T0_over_mu_raw': inverse_map_softplus_log(target_T0_mu, 9.4e-5, 411.52),
+        'mu_raw':         inverse_map_range_log(target_mu, 2.43, 106.15),
+        'D_over_mu_raw':  inverse_map_range_log(target_D_mu, 0.2805, 201.188),
+        'T0_over_mu_raw': inverse_map_range_log(target_T0_mu, 9.4e-5, 411.52),
         'Ly_raw':         inverse_map_range_linear(Ly_target, 1.1, 4.0),
         'xo_raw':         inverse_map_range_linear(target_xo, 0.51 * Lx_target, 1.0 * Lx_target),
         'yo_raw':         inverse_map_range_linear(target_yo, 0.51 * Ly_target, 1.0 * Ly_target),
