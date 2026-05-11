@@ -10,6 +10,7 @@ class Loss(nn.Module):
                  fft_sizes=[64, 256, 1024, 4096]):
         super().__init__()
 
+        self.mse_weight = mse_weight
         self.stft_weight = stft_weight
         self.energy_weight = energy_weight
         self.sr = sr
@@ -53,6 +54,11 @@ class Loss(nn.Module):
 
 
         # =========================
+        # 1. TIME-DOMAIN MSE
+        # =========================
+        mse_loss = F.mse_loss(norm_pred.squeeze(), norm_target.squeeze())
+
+        # =========================
         # 2. ENERGY LOSS
         # =========================
         pred_energy = pred_audio**2
@@ -94,6 +100,7 @@ class Loss(nn.Module):
         # FINAL
         # =========================
         total_loss = (
+            self.mse_weight * mse_loss +
             self.stft_weight * mss_loss +
             self.energy_weight * energy_loss
         )

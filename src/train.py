@@ -14,8 +14,8 @@ def main():
     
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate = 44100
-    num_iterations = 1000
-    LR = 0.01
+    num_iterations = 500
+    LR = 0.001
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -79,7 +79,7 @@ def main():
     ).to(device)
     
     criterion = Loss(
-        mse_weight=0.0,
+        mse_weight=0.01,
         stft_weight=1.0,
         energy_weight=0.0,
         fft_sizes=[64, 128, 256, 1024, 4096]
