@@ -3,7 +3,6 @@ import time
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import MSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 
@@ -15,7 +14,7 @@ def main():
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate = 44100
     num_iterations = 500
-    LR = 0.001
+    LR = 0.01
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -23,71 +22,17 @@ def main():
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
-    # Initialize model near a chosen physical point (sigmoid-mapped parameters).
-    # Set jitter_std=0.0 to start exactly from the provided values.
-    start_phys = {
-        'mu': 19.625000,
-        'D_over_mu': 14.154282,
-        'T0_over_mu': 22.929936,
-        'Ly': 2.2500,
-        'xo': 0.7500,
-        'yo': 1.8450,
-    }
-    jitter_std = 0.02
-
-    def _logit(x: torch.Tensor) -> torch.Tensor:
-        return torch.log(x / (1.0 - x))
-
-    def _clamp01(x: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
-        return torch.clamp(x, min=eps, max=1.0 - eps)
-
-    def inv_map_sigm_linear(y: float, min_v: float, max_v: float) -> float:
-        y_t = torch.tensor(y, dtype=dtype)
-        norm = (y_t - min_v) / (max_v - min_v)
-        return _logit(_clamp01(norm)).item()
-
-    def inv_map_sigm_log(y: float, min_v: float, max_v: float) -> float:
-        y_t = torch.tensor(y, dtype=dtype)
-        log_min = torch.log10(torch.tensor(min_v, dtype=dtype))
-        log_max = torch.log10(torch.tensor(max_v, dtype=dtype))
-        norm = (torch.log10(y_t) - log_min) / (log_max - log_min)
-        return _logit(_clamp01(norm)).item()
-
-    init_raw = {
-        'mu_raw': inv_map_sigm_log(start_phys['mu'], 2.43, 106.15),
-        'D_over_mu_raw': inv_map_sigm_log(start_phys['D_over_mu'], 0.2805, 201.188),
-        'T0_over_mu_raw': inv_map_sigm_log(start_phys['T0_over_mu'], 9.4e-5, 411.52),
-        'Ly_raw': inv_map_sigm_linear(start_phys['Ly'], 1.1, 4.0),
-        'xo_raw': inv_map_sigm_linear(start_phys['xo'], 0.51 * 1.0, 1.0 * 1.0),
-        'yo_raw': inv_map_sigm_linear(start_phys['yo'], 0.51 * start_phys['Ly'], 1.0 * start_phys['Ly']),
-    }
-
-    if jitter_std > 0.0:
-        for k in init_raw:
-            init_raw[k] = (torch.tensor(init_raw[k], dtype=dtype) + jitter_std * torch.randn((), dtype=dtype)).item()
-
-    # Previous initialization (default raw parameters):
-    # model = DifferentiableModalPlate(
-    #     sample_rate=sample_rate,
-    #     dtype=dtype
-    # ).to(device)
-
     model = DifferentiableModalPlate(
         sample_rate=sample_rate,
-        plate_params=init_raw,
         dtype=dtype
     ).to(device)
     
     criterion = Loss(
-        mse_weight=0.01,
+        mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
         fft_sizes=[64, 128, 256, 1024, 4096]
        ).to(device)
-
-    #model.Ly_raw.requires_grad = False
-    #model.xo_raw.requires_grad = False
-    #model.yo_raw.requires_grad = False
 
     active_params = filter(lambda p: p.requires_grad, model.parameters())
 
@@ -108,10 +53,17 @@ def main():
         # Step 2: Forward Pass
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
-        pred_ir = model(duration=duration, normalize=False, velCalc=False)
+
+        curr_duration = min(0.05 + (iteration / 200) * duration, duration)
+        pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
+        curr_samples = pred_ir.shape[0]
+        target_ir_cropped = target_ir[:curr_samples]
+        
+        criterion.precompute_target_stft(target_ir_cropped)
+        loss = criterion(pred_ir, target_ir_cropped)
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
-        loss = criterion(pred_ir, target_ir)
+        #loss = criterion(pred_ir, target_ir)
 
         # Step 4: Backward Pass
         if iteration == 0: 

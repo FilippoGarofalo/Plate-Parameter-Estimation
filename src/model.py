@@ -53,17 +53,17 @@ class DifferentiableModalPlate(nn.Module):
                     raise KeyError(f"Missing parameter '{name}' in plate_params")
                 return nn.Parameter(torch.tensor(plate_params[name], dtype=dtype))
 
-        self.mu_raw         = init_param('mu_raw', 0.5)
-        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.5)
+        self.mu_raw         = init_param('mu_raw', 0.0)
+        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.0)
         self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.5)
-        self.Ly_raw         = init_param('Ly_raw', 0.5)
-        self.xo_raw         = init_param('xo_raw', 0.5)
-        self.yo_raw         = init_param('yo_raw', 0.5)
+        self.Ly_raw         = init_param('Ly_raw', 0.0)
+        self.xo_raw         = init_param('xo_raw', 0.0)
+        self.yo_raw         = init_param('yo_raw', 0.0)
 
     def get_physical_parameters(self):
-        mu = map_sigm_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        D_over_mu = map_sigm_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        T0_over_mu = map_sigm_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        mu = map_softplus_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        D_over_mu = map_softplus_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        T0_over_mu = map_softplus_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=0.1)
 
         Ly = map_sigm_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
         xo = map_sigm_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)
@@ -163,7 +163,7 @@ class DifferentiableModalPlate(nn.Module):
         P = 4.0 * OutWeight * InWeight * self.k**2 * exp_term / (ms * self.Lx * Ly)
 
         # =========================
-        # 5. TIME INTEGRATION (Analytic)
+        # 5. TIME INTEGRATION 
         # =========================
         num_samples = int(self.sample_rate * duration)
         
