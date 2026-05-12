@@ -37,16 +37,6 @@ def main():
     active_params = filter(lambda p: p.requires_grad, model.parameters())
 
     optimizer = get_optimizer(active_params ,lr=LR)
-
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode='min',
-        factor=0.1,       # LR / 10 quando scatta
-        patience=30,       # aspetta 30 iter senza miglioramento
-        threshold=0.01,    # migliora solo se scende >1%
-        cooldown=20,       # dopo un drop, aspetta 20 iter prima di rivalutare
-        min_lr=1e-6,
-    )
     
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
     criterion.precompute_target_stft(target_ir)
@@ -86,7 +76,6 @@ def main():
 
         # Step 6: Update Parameters
         optimizer.step()
-        scheduler.step(loss.item())
         optimizer.zero_grad()
 
         # Step 7: Print logs and parameter progress
