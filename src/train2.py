@@ -83,6 +83,10 @@ def main():
             best_state_dict = copy.deepcopy(model.state_dict())
             print(f"  >> New best probe (loss={best_probe_loss:.6f})")
 
+        # Explicitly free GPU memory before the next start
+        del model, optimizer, pred_ir, loss, target_ir_cropped
+        torch.cuda.empty_cache()
+
     phase1_time = time.time() - phase1_start
     print(f"\nPhase 1 done in {phase1_time:.2f}s. Best probe loss: {best_probe_loss:.6f}")
 
