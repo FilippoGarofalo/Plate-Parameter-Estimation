@@ -14,7 +14,7 @@ def main():
     
     target_npz_path = "target/ground_truth_test_1.1.npz"
     sample_rate = 44100
-    num_iterations = 500
+    num_iterations = 1000
     LR = 0.01
     dtype = torch.float64
 
@@ -58,7 +58,7 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration / 200) * duration, duration)
+        curr_duration = min(0.05 + (iteration / 300) * duration, duration)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
