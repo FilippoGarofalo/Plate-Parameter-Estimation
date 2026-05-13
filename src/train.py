@@ -12,7 +12,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_1.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 500
     LR = 0.01
@@ -85,7 +85,7 @@ def main():
         # Step 6.5: Scheduler step
         # CRITICAL: ONLY step the scheduler after your progressive growing phase (iteration 200)
         # Otherwise, the growing signal duration will artificially trigger learning rate drops
-        if iteration >= 200 and loss.item() < 0.20:
+        if iteration >= 200 and loss.item() < 0.30:
             scheduler.step(loss)
             # Print when the learning rate changes so you can monitor the drops
             current_lr = optimizer.param_groups[0]['lr']
