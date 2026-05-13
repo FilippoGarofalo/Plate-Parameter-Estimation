@@ -2,14 +2,14 @@ import numpy as np
 import os
 from ModalPlate import ModalPlate
 
-def generate_custom_target(filename="ground_truth_test_5.npz"):
+def generate_custom_target(filename="ground_truth_test_1.1.npz"):
     
     gt_params = {
         'Lx': 1.0,           # Fisso
-        'Ly': 2.25,          # [1.1, 4.0]
+        'Ly': 3.25,          # [1.1, 4.0]
         'h': 0.0025,         # [0.001, 0.005]
         'T0': 450.0,         # [0.01, 1000.0]
-        'rho': 7850.0,       # [2430.0, 21230.0] (Acciaio)
+        'rho': 18000.0,       # [2430.0, 21230.0] (Acciaio)
         'E': 20.0e10,        # [6.7e10, 22.0e10]
         'nu': 0.25,          # Fisso
         'T60_DC': 6.0,       # Fisso
@@ -40,9 +40,9 @@ def generate_custom_target(filename="ground_truth_test_5.npz"):
     print(f"yo      : {target_yo:.4f}")
     print("-------------------------------------------\n")
 
-    print("Synthesizing IR (5 seconds)...")
+    print("Synthesizing IR (1 seconds)...")
     plate = ModalPlate(sample_rate=44100, plate_params=gt_params)
-    ir = plate.synthesize_ir_method(duration=5.0, normalize=False, velCalc=False)
+    ir = plate.synthesize_ir_method(duration=1.0, normalize=False, velCalc=False)
 
     os.makedirs('target', exist_ok=True)
     save_path = os.path.join('target', filename)
