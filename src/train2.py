@@ -21,8 +21,8 @@ def main():
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 10
-    probe_iters     = 100   # short run per LHS start to find best basin
+    n_starts        = 5
+    probe_iters     = 50   # short run per LHS start to find best basin
     lhs_seed        = 42
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -58,7 +58,7 @@ def main():
         for iteration in range(probe_iters):
             optimizer.zero_grad()
 
-            curr_duration = min(0.05 + (iteration / 200) * duration, duration)
+            curr_duration = min(0.05 + (iteration / probe_iters) * duration, duration)
             pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
             curr_samples = pred_ir.shape[0]
             target_ir_cropped = target_ir[:curr_samples]
