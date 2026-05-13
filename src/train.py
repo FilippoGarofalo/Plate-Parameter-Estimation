@@ -85,7 +85,7 @@ def main():
         # Step 6.5: Scheduler step
         # CRITICAL: ONLY step the scheduler after your progressive growing phase (iteration 200)
         # Otherwise, the growing signal duration will artificially trigger learning rate drops
-        if iteration >= 200:
+        if iteration >= 200 and loss.item() < 0.20:
             scheduler.step(loss)
             # Print when the learning rate changes so you can monitor the drops
             current_lr = optimizer.param_groups[0]['lr']
