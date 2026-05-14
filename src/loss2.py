@@ -7,8 +7,15 @@ class MSELoss(nn.Module):
 
     def __init__(self):
         super().__init__()
+        self.eps = 1e-9
 
     def forward(self, pred_audio: torch.Tensor, target_audio: torch.Tensor) -> torch.Tensor:
         pred = pred_audio.squeeze()
         target = target_audio.squeeze()
-        return F.mse_loss(pred, target)
+        
+        # Normalize by target energy (RMS)
+        target_energy = torch.sqrt(torch.mean(target**2) + self.eps)
+        pred_norm = pred / target_energy
+        target_norm = target / target_energy
+
+        return F.mse_loss(pred_norm, target_norm) / (target_energy**2 + self.eps)
