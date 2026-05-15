@@ -17,7 +17,7 @@ def main():
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate     = 44100
     num_iterations  = 1000
-    LR              = 0.01
+    LR              = 0.1
     dtype           = torch.float64
 
     # Multi-start settings
@@ -69,6 +69,13 @@ def main():
 
             optimizer.step()
             optimizer.zero_grad()
+
+            mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
+                p.detach().cpu().item() for p in model.get_physical_parameters()
+            ]
+            print(f"    iter {iteration:03d} | loss: {loss.item():.6f} | "
+                  f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f} | "
+                  f"Ly: {Ly:.4f} | xo: {xo:.4f} | yo: {yo:.4f}")
 
         probe_loss = loss.item()
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
