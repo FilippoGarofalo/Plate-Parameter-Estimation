@@ -3,7 +3,6 @@ import time
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import MSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -13,10 +12,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_1.npz"
+    #target_npz_path = "target/ground_truth_test_1.1.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
-    num_iterations = 1000
-    LR = 0.01
+    num_iterations = 1500
+    LR = 0.1
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -29,12 +29,22 @@ def main():
         dtype=dtype
     ).to(device)
     
-    criterion = MSELoss().to(device)
+    criterion = Loss(
+        mse_weight=0.0,
+        stft_weight=1.0,
+        energy_weight=0.0,
+        fft_sizes=[64, 128, 256, 1024]
+       ).to(device)
+
     active_params = filter(lambda p: p.requires_grad, model.parameters())
 
     optimizer = get_optimizer(active_params ,lr=LR)
+
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10)
+    previous_lr = LR
     
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
+    criterion.precompute_target_stft(target_ir)
     #criterion = MSELoss().to(device)
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
@@ -49,11 +59,12 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration / 200) * duration, duration - 0.03)
+        curr_duration = min(0.05 + (iteration / 500) * duration, duration)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
         
+        criterion.precompute_target_stft(target_ir_cropped)
         loss = criterion(pred_ir, target_ir_cropped)
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
@@ -71,6 +82,17 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         optimizer.zero_grad()
+
+        # Step 6.5: Scheduler step
+        # CRITICAL: ONLY step the scheduler after your progressive growing phase (iteration 200)
+        # Otherwise, the growing signal duration will artificially trigger learning rate drops
+        if loss.item() < 0.50:
+            scheduler.step(loss)
+            # Print when the learning rate changes so you can monitor the drops
+            current_lr = optimizer.param_groups[0]['lr']
+            if current_lr != previous_lr:
+                print(f" [diag] Plateau hit! Learning Rate reduced to: {current_lr}")
+                previous_lr = current_lr
 
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
