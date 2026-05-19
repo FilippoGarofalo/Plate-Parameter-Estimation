@@ -20,13 +20,13 @@ def main():
     dtype           = torch.float64
 
     # Phase-switch settings
-    stft_switch_threshold = 0.50   # switch when STFT loss plateaus at or below this
+    stft_switch_threshold = 0.55   # switch when STFT loss plateaus at or below this
     plateau_patience      = 30     # iterations without improvement to declare plateau
     plateau_delta         = 0.003  # minimum improvement to not count as plateau
     LR_mse                = 0.01   # lower LR for MSE fine-tuning phase
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
-    duration  = len(target_ir) / sample_rate
+    duration  = 1
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
     model = DifferentiableModalPlate(sample_rate=sample_rate, dtype=dtype).to(device)
@@ -63,7 +63,8 @@ def main():
         pred_ir           = model(duration=curr_duration, normalize=False, velCalc=False)
         target_ir_cropped = target_ir[:pred_ir.shape[0]]
 
-        criterion.precompute_target_stft(target_ir_cropped)
+        if phase == 'stft':
+            criterion.precompute_target_stft(target_ir_cropped)
         loss = criterion(pred_ir, target_ir_cropped)
 
         if iteration == 0:
@@ -101,12 +102,15 @@ def main():
                     print(f" {'='*58}\n")
 
         # ── Scheduler step ────────────────────────────────────────────────────
-        if loss.item() < stft_switch_threshold:
+        if phase == 'stft':
+            if loss.item() < stft_switch_threshold:
+                scheduler.step(loss)
+        else:
             scheduler.step(loss)
-            current_lr = optimizer.param_groups[0]['lr']
-            if current_lr != previous_lr:
-                print(f" [diag] LR reduced to {current_lr:.2e}  (phase={phase})")
-                previous_lr = current_lr
+        current_lr = optimizer.param_groups[0]['lr']
+        if current_lr != previous_lr:
+            print(f" [diag] LR reduced to {current_lr:.2e}  (phase={phase})")
+            previous_lr = current_lr
 
         # ── Logging ──────────────────────────────────────────────────────────
         if iteration % 10 == 0 or iteration == num_iterations - 1:

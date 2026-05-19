@@ -20,7 +20,7 @@ class Loss(nn.Module):
             str(n): nn.Parameter(torch.hann_window(n), requires_grad=False)
             for n in fft_sizes
         })
-        
+            
         self.target_stft_cache = {}  # key: (device, n_fft), value: stft tensor
         self.cached_target_audio = None
 
@@ -70,31 +70,28 @@ class Loss(nn.Module):
         # =========================
         # 3. MULTI-SCALE STFT
         # =========================
-        mss_loss = 0.0
+        mss_loss = torch.tensor(0.0, device=device, dtype=pred_audio.dtype)
 
-        for n_fft in self.fft_sizes:
-            hop = n_fft // 4
-            window = self.windows[str(n_fft)].to(device)
+        if self.stft_weight > 0:
+            for n_fft in self.fft_sizes:
+                hop = n_fft // 4
+                window = self.windows[str(n_fft)].to(device)
 
-            pred_stft = torch.stft(pred_audio, n_fft=n_fft, hop_length=hop,
-                                   win_length=n_fft, window=window,
-                                   return_complex=True, center=True)
-            
-            # Retrieve cached target STFT
-            target_stft = self.target_stft_cache[(device, n_fft)]
+                pred_stft = torch.stft(pred_audio, n_fft=n_fft, hop_length=hop,
+                                       win_length=n_fft, window=window,
+                                       return_complex=True, center=True)
 
-            pred_mag = torch.abs(pred_stft).clamp_min(self.eps)
-            target_mag = torch.abs(target_stft).clamp_min(self.eps)
+                target_stft = self.target_stft_cache[(device, n_fft)]
 
-            # spectral convergence (più veloce)
-            sc = torch.norm(target_mag - pred_mag) / torch.norm(target_mag)
+                pred_mag   = torch.abs(pred_stft).clamp_min(self.eps)
+                target_mag = torch.abs(target_stft).clamp_min(self.eps)
 
-            # log-magnitude
-            log_loss = F.l1_loss(torch.log(pred_mag), torch.log(target_mag))
+                sc       = torch.norm(target_mag - pred_mag) / torch.norm(target_mag)
+                log_loss = F.l1_loss(torch.log(pred_mag), torch.log(target_mag))
 
-            mss_loss = mss_loss + (sc + log_loss)
+                mss_loss = mss_loss + (sc + log_loss)
 
-        mss_loss = mss_loss / len(self.fft_sizes)
+            mss_loss = mss_loss / len(self.fft_sizes)
 
         # =========================
         # FINAL
