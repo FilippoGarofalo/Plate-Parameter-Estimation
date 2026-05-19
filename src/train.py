@@ -43,13 +43,10 @@ def main():
 
     optimizer = get_optimizer(active_params ,lr=LR)
 
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=30, min_lr=1e-5)
     previous_lr = LR
     
-    # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
-    #
-    if(criterion != criterion2):
-            criterion.precompute_target_stft(target_ir_cropped)
+
     #criterion = MSELoss().to(device)
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
@@ -91,6 +88,10 @@ def main():
         optimizer.step()
         if(loss.item() < 0.50):
             criterion = criterion2;
+        
+        if criterion == criterion2 and loss.item() < 1:
+            scheduler.step(loss) 
+
         optimizer.zero_grad()
 
         # Step 6.5: Scheduler step
