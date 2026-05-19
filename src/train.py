@@ -96,7 +96,7 @@ def main():
                     filter(lambda p: p.requires_grad, model.parameters()), lr=LR_mse
                 )
                 scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.5,
-                                                patience=30, min_lr=min_lr_mse)
+                                                patience=50, min_lr=min_lr_mse)
                 previous_lr = LR_mse
                 no_improve_count = 0
                 print(f"\n {'='*58}")

@@ -2,23 +2,23 @@ import numpy as np
 import os
 from ModalPlate import ModalPlate
 
-def generate_custom_target(filename="ground_truth_test_1.1.npz"):
+def generate_custom_target(filename="ground_truth_test_1.3.npz"):
     
     gt_params = {
-        'Lx': 1.0,           # Fisso
-        'Ly': 3.25,          # [1.1, 4.0]
-        'h': 0.0025,         # [0.001, 0.005]
-        'T0': 450.0,         # [0.01, 1000.0]
-        'rho': 18000.0,       # [2430.0, 21230.0] (Acciaio)
-        'E': 20.0e10,        # [6.7e10, 22.0e10]
-        'nu': 0.25,          # Fisso
-        'T60_DC': 6.0,       # Fisso
-        'T60_F1': 2.0,       # Fisso
-        'loss_F1': 500.0,    # Fisso
-        'fp_x': 0.335,       # Fisso
-        'fp_y': 0.467,       # Fisso
-        'op_x': 0.75,        # [0.51, 1.0]
-        'op_y': 0.82         # [0.51, 1.0]
+        'Lx': 1.0,
+        'Ly': 2.8,
+        'h': 0.004,
+        'T0': 200.0,
+        'rho': 10000.0,
+        'E': 1.8e11,
+        'nu': 0.25,
+        'T60_DC': 6.0,
+        'T60_F1': 2.0,
+        'loss_F1': 500.0,
+        'fp_x': 0.335,
+        'fp_y': 0.467,
+        'op_x': 0.55,
+        'op_y': 0.60
     }
 
 
