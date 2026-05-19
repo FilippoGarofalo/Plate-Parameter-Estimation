@@ -95,7 +95,7 @@ def main():
             iter = iteration;
             criterion = criterion2;
             optimizer.param_groups[0]['lr'] = 0.1
-            curr_duration = min(0.1 + (iteration-iter+0.005 / 500) * duration, duration-3.5)
+            curr_duration = min(0.1 + ((abs(iteration-iter) ) / 500) * duration, duration-3.5)
             if(iteration % 10 == 0):
                 print(f" [diag] Switching to MSELoss and reducing LR to {0.01}", flush=True)
         optimizer.zero_grad()
