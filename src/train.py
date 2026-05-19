@@ -53,6 +53,7 @@ def main():
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
+    curr_duration = 0.1
     for iteration in range(num_iterations):
         
         # Step 1: Clear the gradients
@@ -62,7 +63,7 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration / 700) * duration, duration-3.5)
+        #curr_duration = min(0.05 + (iteration / 700) * duration, duration-3.5)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
@@ -91,8 +92,10 @@ def main():
             print(f" [diag] Switching to MSELoss and reducing LR to {0.001}", flush=True)
 
         if(loss.item() < 0.50):
+            iter = iteration;
             criterion = criterion2;
             optimizer.param_groups[0]['lr'] = 0.01
+            curr_duration = min(0.1 + (iteration-iter+0.005 / 500) * duration, duration-3.5)
         
         optimizer.zero_grad()
 
