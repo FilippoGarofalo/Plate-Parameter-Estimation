@@ -43,7 +43,7 @@ def main():
 
     optimizer = get_optimizer(active_params ,lr=LR)
 
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=30, min_lr=1e-5)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, min_lr=1e-5)
     previous_lr = LR
     
 
@@ -91,6 +91,7 @@ def main():
         
         if criterion == criterion2 and loss.item() < 1:
             scheduler.step(loss) 
+            print(f" [diag] scheduler step: current_lr={optimizer.param_groups[0]['lr']:.6f}", flush=True)
 
         optimizer.zero_grad()
 
