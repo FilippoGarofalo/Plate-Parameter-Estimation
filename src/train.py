@@ -47,7 +47,9 @@ def main():
     previous_lr = LR
     
     # OPTIMIZATION: Precompute target STFT once (cached for all iterations)
-    criterion.precompute_target_stft(target_ir)
+    #
+    if(criterion != criterion2):
+            criterion.precompute_target_stft(target_ir_cropped)
     #criterion = MSELoss().to(device)
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
@@ -67,8 +69,10 @@ def main():
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
-        
-        criterion.precompute_target_stft(target_ir_cropped)
+        #
+        if(criterion != criterion2):
+            criterion.precompute_target_stft(target_ir_cropped)
+
         loss = criterion(pred_ir, target_ir_cropped)
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
