@@ -34,7 +34,7 @@ def main():
         mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024, 8192]
+        fft_sizes=[64, 128, 256, 1024]
     ).to(device)
 
     optimizer   = get_optimizer(filter(lambda p: p.requires_grad, model.parameters()), lr=LR)
