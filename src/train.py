@@ -16,7 +16,7 @@ def main():
     target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate     = 44100
     num_iterations  = 1500
-    LR              = 0.1
+    LR              = 0.01
     dtype           = torch.float64
 
     # Phase-switch settings
@@ -76,6 +76,7 @@ def main():
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
             print(f" [diag] grad norms: {grad_norms}", flush=True)
 
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         optimizer.zero_grad()
 
