@@ -12,7 +12,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
+    target_npz_path = "target/ground_truth_test_1.1.npz"
     sample_rate     = 44100
     num_iterations  = 1500
     LR              = 0.01
@@ -34,11 +34,11 @@ def main():
         mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024]
+        fft_sizes=[64, 128, 256, 1024, 8192]
     ).to(device)
 
     optimizer   = get_optimizer(filter(lambda p: p.requires_grad, model.parameters()), lr=LR)
-    scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.05, patience=50)
+    scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=80)
     previous_lr = LR
 
     progress = {
