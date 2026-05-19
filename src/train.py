@@ -1,7 +1,6 @@
 import torch
 import time
 import numpy as np
-from collections import deque
 from model import DifferentiableModalPlate
 from loss import Loss
 from utils import load_challenge_npz
@@ -20,10 +19,10 @@ def main():
     dtype           = torch.float64
 
     # Phase-switch settings
-    stft_switch_threshold = 0.55   # switch when STFT loss plateaus at or below this
-    plateau_patience      = 30     # iterations without improvement to declare plateau
-    plateau_delta         = 0.003  # minimum improvement to not count as plateau
-    LR_mse                = 0.01   # lower LR for MSE fine-tuning phase
+    plateau_patience = 50     # iters without improvement before switching to MSE
+    plateau_delta    = 0.005  # improvement must exceed this to reset the counter
+    LR_mse           = 0.005  # LR for MSE fine-tuning phase
+    min_lr_mse       = 1e-5   # stop reducing below this in MSE phase
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
     duration  = 1
@@ -47,8 +46,9 @@ def main():
         'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []
     }
 
-    phase         = 'stft'
-    recent_losses = deque(maxlen=plateau_patience)
+    phase            = 'stft'
+    best_stft_loss   = float('inf')
+    no_improve_count = 0
 
     print("\nStarting Optimization")
     start_time = time.time()
@@ -82,24 +82,28 @@ def main():
 
         # ── Phase-switch: STFT → MSE ──────────────────────────────────────────
         if phase == 'stft':
-            recent_losses.append(loss.item())
-            if len(recent_losses) == plateau_patience:
-                improvement = recent_losses[0] - recent_losses[-1]
-                if improvement < plateau_delta:
-                    phase = 'mse'
-                    criterion.stft_weight = 0.0
-                    criterion.mse_weight  = 1.0
-                    optimizer   = get_optimizer(
-                        filter(lambda p: p.requires_grad, model.parameters()), lr=LR_mse
-                    )
-                    scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=15)
-                    previous_lr = LR_mse
-                    recent_losses.clear()
-                    print(f"\n {'='*58}")
-                    print(f"  [switch] Iter {iteration:04d} — STFT plateau "
-                          f"(loss={loss.item():.4f}, Δ={improvement:.4f})")
-                    print(f"  [switch] → MSE phase  |  LR reset to {LR_mse}")
-                    print(f" {'='*58}\n")
+            if loss.item() < best_stft_loss - plateau_delta:
+                best_stft_loss   = loss.item()
+                no_improve_count = 0
+            else:
+                no_improve_count += 1
+
+            if no_improve_count >= plateau_patience:
+                phase = 'mse'
+                criterion.stft_weight = 0.0
+                criterion.mse_weight  = 1.0
+                optimizer   = get_optimizer(
+                    filter(lambda p: p.requires_grad, model.parameters()), lr=LR_mse
+                )
+                scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.5,
+                                                patience=30, min_lr=min_lr_mse)
+                previous_lr = LR_mse
+                no_improve_count = 0
+                print(f"\n {'='*58}")
+                print(f"  [switch] Iter {iteration:04d} — STFT plateau "
+                      f"(best={best_stft_loss:.4f}, current={loss.item():.4f})")
+                print(f"  [switch] → MSE phase  |  LR reset to {LR_mse}")
+                print(f" {'='*58}\n")
 
         # ── Scheduler step ────────────────────────────────────────────────────
         scheduler.step(loss)
