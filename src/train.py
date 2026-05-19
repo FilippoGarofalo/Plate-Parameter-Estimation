@@ -90,7 +90,7 @@ def main():
             optimizer.param_groups[0]['lr'] = 0.001
             print(f" [diag] Switching to MSELoss and reducing LR to {0.001}", flush=True)
 
-        if(loss.item() < 0.70):
+        if(loss.item() < 0.50):
             criterion = criterion2;
             optimizer.param_groups[0]['lr'] = 0.01
         
