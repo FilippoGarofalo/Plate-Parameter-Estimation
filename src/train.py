@@ -39,7 +39,7 @@ def main():
     ).to(device)
 
     optimizer   = get_optimizer(filter(lambda p: p.requires_grad, model.parameters()), lr=LR)
-    scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10)
+    scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.05, patience=50)
     previous_lr = LR
 
     progress = {
@@ -83,8 +83,7 @@ def main():
         # ── Phase-switch: STFT → MSE ──────────────────────────────────────────
         if phase == 'stft':
             recent_losses.append(loss.item())
-            if (len(recent_losses) == plateau_patience
-                    and loss.item() <= stft_switch_threshold):
+            if len(recent_losses) == plateau_patience:
                 improvement = recent_losses[0] - recent_losses[-1]
                 if improvement < plateau_delta:
                     phase = 'mse'
@@ -103,11 +102,7 @@ def main():
                     print(f" {'='*58}\n")
 
         # ── Scheduler step ────────────────────────────────────────────────────
-        if phase == 'stft':
-            if loss.item() < stft_switch_threshold:
-                scheduler.step(loss)
-        else:
-            scheduler.step(loss)
+        scheduler.step(loss)
         current_lr = optimizer.param_groups[0]['lr']
         if current_lr != previous_lr:
             print(f" [diag] LR reduced to {current_lr:.2e}  (phase={phase})")
