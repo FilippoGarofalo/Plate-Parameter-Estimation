@@ -62,7 +62,7 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration / 500) * duration, duration)
+        curr_duration = min(0.05 + (iteration / 1000) * duration, duration)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
@@ -92,6 +92,7 @@ def main():
         if criterion == criterion2 and loss.item() < 1:
             LR=0.01
             optimizer.param_groups[0]['lr'] = LR
+            print(f" [diag] Switching to MSELoss and reducing LR to {LR}", flush=True)
 
         optimizer.zero_grad()
 
