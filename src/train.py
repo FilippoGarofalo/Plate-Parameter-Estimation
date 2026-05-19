@@ -16,7 +16,7 @@ def main():
     #target_npz_path = "target/ground_truth_test_1.2.npz"
     target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
-    num_iterations = 2500
+    num_iterations = 1500
     LR = 0.1
     dtype = torch.float64
 
@@ -53,9 +53,8 @@ def main():
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
-    idx = -1
     for iteration in range(num_iterations):
-        idx += 1
+        
         # Step 1: Clear the gradients
         optimizer.zero_grad()
 
@@ -63,11 +62,11 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.5 + (idx / 700) * duration, duration-3.5)
+        curr_duration = min(0.05 + (iteration / 700) * duration, duration-3.5)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
-        
+        #
         if(criterion != criterion2):
             criterion.precompute_target_stft(target_ir_cropped)
 
@@ -85,18 +84,16 @@ def main():
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
             print(f" [diag] grad norms: {grad_norms}", flush=True)
 
-        # Step 6: Update Parameters
-        optimizer.step()
         if criterion == criterion2 and loss.item() < 1:
             optimizer.param_groups[0]['lr'] = 0.001
             print(f" [diag] Switching to MSELoss and reducing LR to {0.001}", flush=True)
 
-        if(loss.item() < 0.50):
-            idx = -1
+        # Step 6: Update Parameters
+        optimizer.step()
+        if(loss.item() < 0.80):
             criterion = criterion2;
             optimizer.param_groups[0]['lr'] = 0.01
-            if(iteration % 10 == 0):
-                print(f" [diag] Switching to MSELoss and reducing LR to {0.01}", flush=True)
+
         optimizer.zero_grad()
 
         # Step 6.5: Scheduler step
