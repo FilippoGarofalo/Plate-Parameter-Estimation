@@ -88,15 +88,16 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         if criterion == criterion2 and loss.item() < 1:
-            optimizer.param_groups[0]['lr'] = 0.001
+            optimizer.param_groups[0]['lr'] = 0.01
             print(f" [diag] Switching to MSELoss and reducing LR to {0.001}", flush=True)
 
         if(loss.item() < 0.50):
             iter = iteration;
             criterion = criterion2;
-            optimizer.param_groups[0]['lr'] = 0.01
+            optimizer.param_groups[0]['lr'] = 0.1
             curr_duration = min(0.1 + (iteration-iter+0.005 / 500) * duration, duration-3.5)
-        
+            if(iteration % 10 == 0):
+                print(f" [diag] Switching to MSELoss and reducing LR to {0.01}", flush=True)
         optimizer.zero_grad()
 
         # Step 6.5: Scheduler step
