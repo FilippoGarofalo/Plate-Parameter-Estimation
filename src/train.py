@@ -16,7 +16,7 @@ def main():
     #target_npz_path = "target/ground_truth_test_1.2.npz"
     target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
-    num_iterations = 1500
+    num_iterations = 2500
     LR = 0.1
     dtype = torch.float64
 
@@ -88,14 +88,14 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         if criterion == criterion2 and loss.item() < 1:
-            optimizer.param_groups[0]['lr'] = 0.01
+            optimizer.param_groups[0]['lr'] = 0.001
             print(f" [diag] Switching to MSELoss and reducing LR to {0.001}", flush=True)
 
         if(loss.item() < 0.50):
             iter = iteration;
             criterion = criterion2;
-            optimizer.param_groups[0]['lr'] = 0.1
-            #curr_duration = min(0.1 + ((iteration-iter) / 500) * duration, duration-3.5)
+            optimizer.param_groups[0]['lr'] = 0.01
+            curr_duration = min(0.1 + ((iteration) / 1000) * duration, duration-3.5)
             if(iteration % 10 == 0):
                 print(f" [diag] Switching to MSELoss and reducing LR to {0.01}", flush=True)
         optimizer.zero_grad()
