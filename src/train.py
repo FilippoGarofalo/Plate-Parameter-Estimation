@@ -52,7 +52,7 @@ def main():
 
     # Before the loop, define constants:
     STFT_DURATION = 0.05          # fixed short window for STFT phase
-    MSE_MAX_DURATION = 1.5        # progressive cap for MSE phase
+    MSE_MAX_DURATION = 0.5        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
 
@@ -73,7 +73,8 @@ def main():
             curr_duration = STFT_DURATION
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = 0.05
+            curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_MAX_DURATION,
+                                MSE_MAX_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
