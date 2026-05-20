@@ -101,7 +101,7 @@ def main():
         
         # Step 6: Update Parameters
         optimizer.step()
-        if not use_mse and loss.item() < 0.60:
+        if not use_mse and loss.item() < 0.30:
             use_mse = True
             mse_start_iter = iteration
             optimizer.param_groups[0]['lr'] = 0.01
