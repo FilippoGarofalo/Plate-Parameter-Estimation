@@ -73,7 +73,7 @@ def main():
             curr_duration = STFT_DURATION
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_MAX_DURATION,
+            curr_duration = min(0.05 + (mse_iters_elapsed / 1500ß) * MSE_MAX_DURATION,
                                 MSE_MAX_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
