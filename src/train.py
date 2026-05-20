@@ -50,6 +50,12 @@ def main():
     #criterion = MSELoss().to(device)
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
+    # Before the loop, define constants:
+    STFT_DURATION = 0.15          # fixed short window for STFT phase
+    MSE_MAX_DURATION = 1.5        # progressive cap for MSE phase
+    use_mse = False
+    mse_start_iter = None         # track when MSE phase begins
+
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
@@ -63,15 +69,17 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (idx / 500) * duration, duration-3.5)
+        curr_duration = min(0.05 + (iteration / 700) * duration, duration-3.5)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
         #
-        if(criterion != criterion2):
+        if not use_mse:
             criterion.precompute_target_stft(target_ir_cropped)
+            loss = criterion(pred_ir, target_ir_cropped)
+        else:
+            loss = criterion2(pred_ir, target_ir_cropped)
 
-        loss = criterion(pred_ir, target_ir_cropped)
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
         #loss = criterion(pred_ir, target_ir)
@@ -87,19 +95,14 @@ def main():
 
         if criterion == criterion2 and loss.item() < 1:
             optimizer.param_groups[0]['lr'] = 0.001
-            if(iteration % 10 == 0):
-                print(f" [diag] Reducing LR to {0.001}", flush=True)
+            print(f" [diag] Switching to MSELoss and reducing LR to {0.001}", flush=True)
 
         # Step 6: Update Parameters
         optimizer.step()
-        if(loss.item() < 0.6 and criterion != criterion2):
+        if(loss.item() < 0.80):
+            criterion = criterion2;
             optimizer.param_groups[0]['lr'] = 0.01
-            if(iteration % 10 == 0):
-                print(f" [diag] Reducing LR to {0.01}", flush=True)
-            if(loss.item() < 0.50):
-                criterion = criterion2;
-                idx = -1
-                print(f" [diag] Switching to MSELoss", flush=True)
+
         optimizer.zero_grad()
 
         # Step 6.5: Scheduler step
