@@ -69,7 +69,13 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration / 700) * duration, duration-3.5)
+        if not use_mse:
+            curr_duration = STFT_DURATION
+        else:
+            mse_iters_elapsed = iteration - mse_start_iter
+            curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_MAX_DURATION,
+                                MSE_MAX_DURATION)
+
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
@@ -93,15 +99,14 @@ def main():
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
             print(f" [diag] grad norms: {grad_norms}", flush=True)
 
-        if criterion == criterion2 and loss.item() < 1:
-            optimizer.param_groups[0]['lr'] = 0.001
-            print(f" [diag] Switching to MSELoss and reducing LR to {0.001}", flush=True)
-
+        
         # Step 6: Update Parameters
         optimizer.step()
-        if(loss.item() < 0.80):
-            criterion = criterion2;
+        if not use_mse and loss.item() < 0.60:
+            use_mse = True
+            mse_start_iter = iteration
             optimizer.param_groups[0]['lr'] = 0.01
+            print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
 
         optimizer.zero_grad()
 
