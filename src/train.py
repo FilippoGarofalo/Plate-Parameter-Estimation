@@ -43,7 +43,7 @@ def main():
 
     optimizer = get_optimizer(active_params ,lr=LR)
 
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=40, min_lr=1e-3)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=100, min_lr=1e-3)
     previous_lr = LR
     
 
@@ -51,8 +51,8 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # Before the loop, define constants:
-    STFT_DURATION = 0.05          # fixed short window for STFT phase
-    MSE_DURATION = 0.05        # progressive cap for MSE phase
+    STFT_DURATION = 1          # fixed short window for STFT phase
+    MSE_DURATION = 0.5        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
 
@@ -70,7 +70,7 @@ def main():
             print(" [diag] forward...", flush=True)
 
         if not use_mse:
-            curr_duration = STFT_DURATION
+            curr_duration = min(0.05 * (iteration/500), STFT_DURATION)  # linearly grow from 0 to 50ms over first 500 iterations
         else:
             mse_iters_elapsed = iteration - mse_start_iter
             curr_duration = MSE_DURATION
@@ -104,12 +104,13 @@ def main():
         if not use_mse and loss.item() < 0.60:
             use_mse = True
             mse_start_iter = iteration
-            optimizer.param_groups[0]['lr'] = 0.1
+            optimizer.param_groups[0]['lr'] = 0.01
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
 
         if use_mse:
-            scheduler.step(loss)
-            print(f" [scheduler] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
+            scheduler.step(loss.item())
+            if iteration % 10 == 0:
+                print(f" [scheduler] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
 
         optimizer.zero_grad()
 
