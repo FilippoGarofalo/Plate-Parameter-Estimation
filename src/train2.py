@@ -21,7 +21,7 @@ def main():
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 5
+    n_starts        = 20    
     probe_iters     = 50   # short run per LHS start to find best basin
     lhs_seed        = 42
 
@@ -58,7 +58,7 @@ def main():
         for iteration in range(probe_iters):
             optimizer.zero_grad()
 
-            curr_duration = min(0.05 + (iteration / 500) * duration, duration)
+            curr_duration = 0.05  # fixed short window for probing
             pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
             curr_samples = pred_ir.shape[0]
             target_ir_cropped = target_ir[:curr_samples]
@@ -73,9 +73,10 @@ def main():
             mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
                 p.detach().cpu().item() for p in model.get_physical_parameters()
             ]
-            print(f"    iter {iteration:03d} | loss: {loss.item():.6f} | "
-                  f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f} | "
-                  f"Ly: {Ly:.4f} | xo: {xo:.4f} | yo: {yo:.4f}")
+            if iteration % 10 == 0:
+                print(f"    iter {iteration:03d} | loss: {loss.item():.6f} | "
+                    f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f} | "
+                    f"Ly: {Ly:.4f} | xo: {xo:.4f} | yo: {yo:.4f}")
 
         probe_loss = loss.item()
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
