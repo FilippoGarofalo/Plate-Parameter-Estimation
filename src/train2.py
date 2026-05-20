@@ -17,13 +17,16 @@ def main():
     target_npz_path = "target/ground_truth_test_1.npz"
     sample_rate     = 44100
     num_iterations  = 1000
-    LR              = 0.1
+    LR              = 0.01
     dtype           = torch.float64
 
     # Multi-start settings
     n_starts        = 20    
     probe_iters     = 50   # short run per LHS start to find best basin
     lhs_seed        = 42
+
+    PHASE1_DURATION = 0.5  # fixed short window for LHS probing phase
+    PHASE2_DURATION = 1 # full target duration for final optimization phase
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
@@ -58,7 +61,7 @@ def main():
         for iteration in range(probe_iters):
             optimizer.zero_grad()
 
-            curr_duration = 0.05  # fixed short window for probing
+            curr_duration = min(0.05 + (iteration / 200) * PHASE1_DURATION, PHASE1_DURATION) # fixed short window for probing
             pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
             curr_samples = pred_ir.shape[0]
             target_ir_cropped = target_ir[:curr_samples]
@@ -108,7 +111,7 @@ def main():
     model.load_state_dict(best_state_dict)
 
     active_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer  = get_optimizer(active_params, lr=LR)
+    optimizer  = get_optimizer(active_params, lr=0.01)
     scheduler  = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10)
     previous_lr = LR
 
@@ -124,7 +127,7 @@ def main():
         if iteration == 0:
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration / 200) * duration, duration)
+        curr_duration = min(0.05 + (iteration / 200) * PHASE2_DURATION, PHASE2_DURATION)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
