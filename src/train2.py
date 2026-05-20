@@ -61,7 +61,7 @@ def main():
         for iteration in range(probe_iters):
             optimizer.zero_grad()
 
-            curr_duration = min(0.05 + (iteration / 200) * PHASE1_DURATION, PHASE1_DURATION) # fixed short window for probing
+            curr_duration = min(0.05 + (iteration / 50) * PHASE1_DURATION, PHASE1_DURATION) # fixed short window for probing
             pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
             curr_samples = pred_ir.shape[0]
             target_ir_cropped = target_ir[:curr_samples]
