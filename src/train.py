@@ -43,7 +43,7 @@ def main():
 
     optimizer = get_optimizer(active_params ,lr=LR)
 
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=1, min_lr=1e-3)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=40, min_lr=1e-3)
     previous_lr = LR
     
 
@@ -52,7 +52,7 @@ def main():
 
     # Before the loop, define constants:
     STFT_DURATION = 0.05          # fixed short window for STFT phase
-    MSE_DURATION = 0.5        # progressive cap for MSE phase
+    MSE_DURATION = 0.05        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
 
@@ -104,8 +104,12 @@ def main():
         if not use_mse and loss.item() < 0.60:
             use_mse = True
             mse_start_iter = iteration
-            optimizer.param_groups[0]['lr'] = 0.01
+            optimizer.param_groups[0]['lr'] = 0.1
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
+
+        if use_mse:
+            scheduler.step(loss)
+            print(f" [scheduler] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
 
         optimizer.zero_grad()
 
