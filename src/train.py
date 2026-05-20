@@ -14,7 +14,7 @@ def main():
     print(f"Using device: {device}")
     
     #target_npz_path = "target/ground_truth_test_1.2.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 2500
     LR = 0.1
@@ -51,7 +51,7 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # Before the loop, define constants:
-    STFT_DURATION = 0.15          # fixed short window for STFT phase
+    STFT_DURATION = 0.05          # fixed short window for STFT phase
     MSE_MAX_DURATION = 1.5        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
@@ -73,8 +73,7 @@ def main():
             curr_duration = STFT_DURATION
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_MAX_DURATION,
-                                MSE_MAX_DURATION)
+            curr_duration = 0.05
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
