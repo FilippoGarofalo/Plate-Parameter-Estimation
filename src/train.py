@@ -13,8 +13,8 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    #target_npz_path = "target/ground_truth_test_1.2.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
+    target_npz_path = "target/ground_truth_test_1.1.npz"
+    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 2500
     LR = 0.1
@@ -101,7 +101,7 @@ def main():
         
         # Step 6: Update Parameters
         optimizer.step()
-        if not use_mse and loss.item() < 0.30:
+        if not use_mse and loss.item() < 0.60:
             use_mse = True
             mse_start_iter = iteration
             optimizer.param_groups[0]['lr'] = 0.01
