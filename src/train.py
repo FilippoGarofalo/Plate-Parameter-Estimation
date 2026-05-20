@@ -73,7 +73,7 @@ def main():
             curr_duration = min(0.05 + (iteration/500)*STFT_DURATION, STFT_DURATION)  # linearly grow from 0 to 50ms over first 500 iterations
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = MSE_DURATION
+            curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
@@ -107,10 +107,6 @@ def main():
             optimizer.param_groups[0]['lr'] = 0.01
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
 
-        if use_mse:
-            scheduler.step(loss.item())
-            if iteration % 10 == 0:
-                print(f" [scheduler] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
 
         optimizer.zero_grad()
 
