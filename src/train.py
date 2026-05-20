@@ -14,7 +14,7 @@ def main():
     print(f"Using device: {device}")
     
     #target_npz_path = "target/ground_truth_test_1.2.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz"
     sample_rate = 44100
     num_iterations = 2500
     LR = 0.1
@@ -34,7 +34,7 @@ def main():
         mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024]
+        fft_sizes=[64, 128, 256, 1024, 4096],
        ).to(device)
     
     criterion2 = MSELoss().to(device)
@@ -63,7 +63,7 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (idx / 500) * duration, duration-4.0)
+        curr_duration = min(0.05 + (idx / 500) * duration, duration-3.5)
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
@@ -87,13 +87,15 @@ def main():
 
         if criterion == criterion2 and loss.item() < 1:
             optimizer.param_groups[0]['lr'] = 0.001
-            print(f" [diag] Reducing LR to {0.001}", flush=True)
+            if(iteration % 10 == 0):
+                print(f" [diag] Reducing LR to {0.001}", flush=True)
 
         # Step 6: Update Parameters
         optimizer.step()
-        if(loss.item() < 0.7 and criterion != criterion2):
+        if(loss.item() < 0.6 and criterion != criterion2):
             optimizer.param_groups[0]['lr'] = 0.01
-            print(f" [diag] Reducing LR to {0.01}", flush=True)
+            if(iteration % 10 == 0):
+                print(f" [diag] Reducing LR to {0.01}", flush=True)
             if(loss.item() < 0.50):
                 criterion = criterion2;
                 idx = -1
