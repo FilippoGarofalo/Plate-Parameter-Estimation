@@ -43,7 +43,7 @@ def main():
 
     optimizer = get_optimizer(active_params ,lr=LR)
 
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=100, min_lr=1e-3)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.05, patience=100, min_lr=1e-4)
     previous_lr = LR
     
 
@@ -109,9 +109,10 @@ def main():
 
 
         optimizer.zero_grad()
-
-        # Step 6.5: Scheduler step
-        # CRITICAL: ONLY step the scheduler after your progressive growing phase (iteration 200)
+        if mse_iters_elapsed > 500 and use_mse:
+            scheduler.step(loss.item())
+            print(f" [diag] MSE phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
+        
         # Otherwise, the growing signal duration will artificially trigger learning rate drops
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
