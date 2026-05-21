@@ -26,12 +26,14 @@ def lhs_sample_raw_params_2d(n_starts, seed=42):
     for u in unit_samples:
         D_over_mu  = log_interp(u[0], *D_BOUNDS)
         T0_over_mu = log_interp(u[1], *T0_BOUNDS)
+        mu         = log_interp(u[2], *MU_BOUNDS)
 
         D_over_mu_raw  = inverse_map_softplus_log(D_over_mu, *D_BOUNDS)
         T0_over_mu_raw = inverse_map_softplus_log(T0_over_mu, *T0_BOUNDS) / T0_WEIGHT
+        mu_raw         = inverse_map_softplus_log(mu, *MU_BOUNDS)
 
         raw_params_list.append({
-            'mu_raw':         0.0,    # default → middle of range
+            'mu_raw':         float(mu_raw),    # default → middle of range
             'D_over_mu_raw':  float(D_over_mu_raw),
             'T0_over_mu_raw': float(T0_over_mu_raw),
             'Ly_raw':         0.0,    # default
