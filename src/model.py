@@ -62,8 +62,8 @@ class DifferentiableModalPlate(nn.Module):
 
     def get_physical_parameters(self):
         mu = map_softplus_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        D_over_mu = map_softplus_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        T0_over_mu = map_softplus_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=0.1)
+        D_over_mu = map_softplus_log(self.D_over_mu_raw, 0.2805, 300.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        T0_over_mu = map_softplus_log(self.T0_over_mu_raw, 9.4e-5, 500.52, dtype=self.dtype, device=self.Lx.device, weight=0.1)
 
         Ly = map_sigm_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
         xo = map_sigm_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)

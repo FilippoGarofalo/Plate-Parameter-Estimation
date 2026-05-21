@@ -113,7 +113,8 @@ class Loss(nn.Module):
                 centroid_loss = centroid_loss + F.l1_loss(pred_c, target_c)
 
             mss_loss = mss_loss / len(self.fft_sizes)
-            centroid_loss = centroid_loss / len(self.fft_sizes)
+            loss_weights = torch.linspace(2.0, 1.0, pred_mag.shape[0], device=device)
+            centroid_loss = centroid_loss + F.l1_loss(pred_c * loss_weights, target_c * loss_weights)
 
         # =========================
         # FINAL
