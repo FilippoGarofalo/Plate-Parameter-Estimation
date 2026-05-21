@@ -17,7 +17,7 @@ def find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=
     best_loss = float('inf')
     best_params = None
     
-    test_duration = 0.1  # <-- 100ms per distinguere meglio Tensione e Rigidità
+    test_duration = 0.5  # <-- 500ms per distinguere meglio Tensione e Rigidità
     test_samples = int(44100 * test_duration)
     target_cropped = target_ir[:test_samples]
     
@@ -69,7 +69,7 @@ def find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=
 
     print(f"LHS completato! Loss Iniziale crollata a: {best_loss:.4f}")
     print("-" * 60)
-    
+
 def main():
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -124,13 +124,8 @@ def main():
         # FASE 1: NORMALIZED STFT (Allineamento Spettrale)
         # ========================================================
         if iteration < 800:
-            if iteration < 150:
-                # Stabilizzazione a 50ms
-                curr_duration = 0.05
-            else:
-                # Crescita dolce fino a 800 iterazioni
-                time_frac = (iteration - 150) / 650.0 
-                curr_duration = min(0.05 + time_frac * (duration - 0.05), duration)
+            time_frac = iteration / 800.0 
+            curr_duration = min(0.20 + time_frac * (duration - 0.20), duration)
                 
             pred_ir = model(duration=curr_duration, normalize=True, velCalc=False)
             curr_samples = pred_ir.shape[0]
