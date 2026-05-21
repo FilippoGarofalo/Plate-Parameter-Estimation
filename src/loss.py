@@ -67,10 +67,11 @@ class Loss(nn.Module):
         target_energy_var = torch.mean(target_energy**2).clamp_min(self.eps)
         energy_loss = F.mse_loss(pred_energy, target_energy) / target_energy_var
 
-        # =========================
-        # 3. MULTI-SCALE STFT
-        # =========================
+        # =========================================================
+        # 3. MULTI-SCALE STFT (Modificata con Centroid & Smearing)
+        # =========================================================
         mss_loss = torch.tensor(0.0, device=device, dtype=pred_audio.dtype)
+        centroid_loss = torch.tensor(0.0, device=device, dtype=pred_audio.dtype)
 
         if self.stft_weight > 0:
             for n_fft in self.fft_sizes:
@@ -86,19 +87,41 @@ class Loss(nn.Module):
                 pred_mag   = torch.abs(pred_stft).clamp_min(self.eps)
                 target_mag = torch.abs(target_stft).clamp_min(self.eps)
 
-                sc       = torch.norm(target_mag - pred_mag) / torch.norm(target_mag)
-                log_loss = F.l1_loss(torch.log(pred_mag), torch.log(target_mag))
+                # --- 1. DILATAZIONE DEI PICCHI (Frequency Smearing) ---
+                # Traspongo per avere (Time, Freq) come (Channels, Length) per il max_pool1d
+                pm = pred_mag.transpose(0, 1).unsqueeze(0)  
+                tm = target_mag.transpose(0, 1).unsqueeze(0)
+
+                # Kernel di dilatazione (allarga i picchi di +/- 7 bin)
+                k = 15  
+                pm_smeared = F.max_pool1d(pm, kernel_size=k, stride=1, padding=k//2)
+                tm_smeared = F.max_pool1d(tm, kernel_size=k, stride=1, padding=k//2)
+
+                sc       = torch.norm(tm_smeared - pm_smeared) / torch.norm(tm_smeared)
+                log_loss = F.l1_loss(torch.log(pm_smeared), torch.log(tm_smeared))
 
                 mss_loss = mss_loss + (sc + log_loss)
 
+                # --- 2. SPECTRAL CENTROID ---
+                # Vettore lineare per le frequenze da 0 a 1
+                freqs = torch.linspace(0.0, 1.0, pred_mag.shape[0], device=device, dtype=pred_mag.dtype).unsqueeze(1)
+                
+                # Calcolo del centroide di massa (energia)
+                pred_c = torch.sum(pred_mag * freqs) / (torch.sum(pred_mag) + self.eps)
+                target_c = torch.sum(target_mag * freqs) / (torch.sum(target_mag) + self.eps)
+                
+                centroid_loss = centroid_loss + F.l1_loss(pred_c, target_c)
+
             mss_loss = mss_loss / len(self.fft_sizes)
+            centroid_loss = centroid_loss / len(self.fft_sizes)
 
         # =========================
         # FINAL
         # =========================
+        # Ho aggiunto un peso fortissimo (5.0) al centroide per "svegliare" D_over_mu
         total_loss = (
             self.mse_weight * mse_loss +
-            self.stft_weight * mss_loss +
+            self.stft_weight * (mss_loss + 5.0 * centroid_loss) + 
             self.energy_weight * energy_loss
         )
 

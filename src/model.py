@@ -54,7 +54,7 @@ class DifferentiableModalPlate(nn.Module):
                 return nn.Parameter(torch.tensor(plate_params[name], dtype=dtype))
 
         self.mu_raw         = init_param('mu_raw', 0.0)
-        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.0)
+        self.D_over_mu_raw  = init_param('D_over_mu_raw', 0.1)
         self.T0_over_mu_raw = init_param('T0_over_mu_raw', 0.5)
         self.Ly_raw         = init_param('Ly_raw', 0.0)
         self.xo_raw         = init_param('xo_raw', 0.0)
@@ -62,11 +62,8 @@ class DifferentiableModalPlate(nn.Module):
 
     def get_physical_parameters(self):
         mu = map_softplus_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        mu = torch.clamp(mu, min=2.43, max=106.15)
         D_over_mu = map_softplus_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        D_over_mu = torch.clamp(D_over_mu, min=0.2805, max=201.188)
         T0_over_mu = map_softplus_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=0.1)
-        T0_over_mu = torch.clamp(T0_over_mu, min=9.4e-5, max=411.52)
 
         Ly = map_sigm_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
         xo = map_sigm_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)
