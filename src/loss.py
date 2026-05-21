@@ -121,7 +121,7 @@ class Loss(nn.Module):
         # Ho aggiunto un peso fortissimo (5.0) al centroide per "svegliare" D_over_mu
         total_loss = (
             self.mse_weight * mse_loss +
-            self.stft_weight * (mss_loss + 5.0 * centroid_loss) + 
+            self.stft_weight * (mss_loss) + 
             self.energy_weight * energy_loss
         )
 
