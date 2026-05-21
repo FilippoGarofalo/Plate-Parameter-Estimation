@@ -3,6 +3,7 @@ import time
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
+from loss2 import MSELoss
 from utils import load_challenge_npz, map_sigm_linear, map_softplus_log, inverse_map_sigm_linear, inverse_map_softplus_log
 from optimizer import get_optimizer
 from scipy.stats import qmc
@@ -75,7 +76,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_1.2.npz"
+    target_npz_path = "target/ground_truth_test_1.1.npz"
     sample_rate = 44100
     num_iterations = 2500
     LR = 0.01
@@ -97,6 +98,7 @@ def main():
         fft_sizes=[16, 32, 64, 128, 256, 1024, 4096],
        ).to(device)
 
+    criterion2 = MSELoss().to(device)
     # Note: Ly is NOT frozen here. Only spatial variables are.
     model.xo_raw.requires_grad = False
     model.yo_raw.requires_grad = False
@@ -123,8 +125,8 @@ def main():
         # ========================================================
         # FASE 1: NORMALIZED STFT (Allineamento Spettrale)
         # ========================================================
-        if iteration < 800:
-            time_frac = iteration / 800.0 
+        if iteration < 500:
+            time_frac = iteration / 500.0 
             curr_duration = min(0.20 + time_frac * (duration - 0.20), duration)
                 
             pred_ir = model(duration=curr_duration, normalize=True, velCalc=False)
@@ -143,19 +145,17 @@ def main():
         else:
             curr_duration = duration # Assicuriamoci che usi l'intera lunghezza
             
-            if iteration == 800:
-                print("\n [switch] Fase 2: Sblocco spaziali, tolgo normalizzazione e attivo Energy Loss!", flush=True)
+            if iteration == 500:
+                print("\n [switch] Fase 2: Sblocco spaziali, tolgo normalizzazione e attivo MSE Loss!", flush=True)
                 model.xo_raw.requires_grad = True
                 model.yo_raw.requires_grad = True
                 optimizer.add_param_group({'params': [model.xo_raw, model.yo_raw], 'lr': 0.01})
-                
-                # LA MAGIA È QUI: Accendiamo l'Energy Loss
-                criterion.energy_weight = 1.0
                 
             pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
             curr_samples = pred_ir.shape[0]
             target_ir_cropped = target_ir[:curr_samples]
             
+            criterion = criterion2
             # Ricalcoliamo le STFT target ma questa volta SENZA normalizzarle
             criterion.precompute_target_stft(target_ir_cropped)
             
