@@ -7,6 +7,7 @@ from loss2 import MSELoss
 from utils import load_challenge_npz, inverse_map_sigm_linear, inverse_map_softplus_log
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from scipy.stats import qmc
 
 def find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=50):
     print(f"\n--- Ricerca del miglior punto di partenza via Latin Hypercube Sampling ({num_samples} samples) ---")
