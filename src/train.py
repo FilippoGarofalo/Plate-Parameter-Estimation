@@ -17,7 +17,7 @@ def main():
     #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 2500
-    LR = 0.1
+    LR = 0.01
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
