@@ -16,7 +16,7 @@ YO_FRAC_BOUNDS = (0.51,   1.0)   # yo as fraction of Ly
 T0_WEIGHT = 0.1  # weight used in map_softplus_log for T0_over_mu_raw
 
 def lhs_sample_raw_params_2d(n_starts, seed=42):
-    sampler = qmc.LatinHypercube(d=2, seed=seed)
+    sampler = qmc.LatinHypercube(d=3, seed=seed)
     unit_samples = sampler.random(n=n_starts)
 
     def log_interp(u, lo, hi):
