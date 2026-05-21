@@ -15,6 +15,30 @@ YO_FRAC_BOUNDS = (0.51,   1.0)   # yo as fraction of Ly
 
 T0_WEIGHT = 0.1  # weight used in map_softplus_log for T0_over_mu_raw
 
+def lhs_sample_raw_params_2d(n_starts, seed=42):
+    sampler = qmc.LatinHypercube(d=2, seed=seed)
+    unit_samples = sampler.random(n=n_starts)
+
+    def log_interp(u, lo, hi):
+        return np.exp(np.log(lo) + u * (np.log(hi) - np.log(lo)))
+
+    raw_params_list = []
+    for u in unit_samples:
+        D_over_mu  = log_interp(u[0], *D_BOUNDS)
+        T0_over_mu = log_interp(u[1], *T0_BOUNDS)
+
+        D_over_mu_raw  = inverse_map_softplus_log(D_over_mu, *D_BOUNDS)
+        T0_over_mu_raw = inverse_map_softplus_log(T0_over_mu, *T0_BOUNDS) / T0_WEIGHT
+
+        raw_params_list.append({
+            'mu_raw':         0.0,    # default → middle of range
+            'D_over_mu_raw':  float(D_over_mu_raw),
+            'T0_over_mu_raw': float(T0_over_mu_raw),
+            'Ly_raw':         0.0,    # default
+            'xo_raw':         0.0,    # default
+            'yo_raw':         0.0,    # default
+        })
+    return raw_params_list
 
 def lhs_sample_raw_params(n_starts: int, seed: int = 42) -> list[dict]:
     """

@@ -7,7 +7,7 @@ from loss import Loss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from lhs import lhs_sample_raw_params
+from lhs import lhs_sample_raw_params, lhs_sample_raw_params_2d
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
@@ -21,7 +21,7 @@ def main():
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 20    
+    n_starts        = 10     
     probe_iters     = 50   # short run per LHS start to find best basin
     lhs_seed        = 42
 
@@ -41,7 +41,7 @@ def main():
     ).to(device)
 
     # ── PHASE 1: Probe all LHS starts ────────────────────────────
-    lhs_params = lhs_sample_raw_params(n_starts, seed=lhs_seed)
+    lhs_params = lhs_sample_raw_params_2d(n_starts, seed=lhs_seed)
     print(f"\nPhase 1 — probing {n_starts} LHS starts for {probe_iters} iterations each")
 
     best_probe_loss  = float('inf')
