@@ -79,7 +79,7 @@ def main():
     target_npz_path = "target/ground_truth_test_1.1.npz"
     sample_rate = 44100
     num_iterations = 2500
-    LR = 0.01
+    LR = 0.1
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -122,24 +122,21 @@ def main():
             print(" [diag] forward...", flush=True)
 
         # ========================================================
-        # FASE 1: NORMALIZED STFT (Allineamento Spettrale)
+        # FASE 1:  STFT (Allineamento Spettrale)
         # ========================================================
         if iteration < 500:
             time_frac = iteration / 500.0 
             curr_duration = min(0.20 + time_frac * (duration - 0.20), duration)
                 
-            pred_ir = model(duration=curr_duration, normalize=True, velCalc=False)
+            pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
             curr_samples = pred_ir.shape[0]
             target_ir_cropped = target_ir[:curr_samples]
-            
-            peak_t = torch.max(torch.abs(target_ir_cropped)) + 1e-8
-            target_ir_norm = target_ir_cropped / peak_t
-            
-            criterion.precompute_target_stft(target_ir_norm)
-            loss = criterion(pred_ir, target_ir_norm)
+        
+            criterion.precompute_target_stft(target_ir_cropped)
+            loss = criterion(pred_ir, target_ir_cropped)
             
         # ========================================================
-        # FASE 2: UNNORMALIZED STFT + ENERGY (Allineamento Volume/Spazio)
+        # FASE 2: MSE
         # ========================================================
         else:
             curr_duration = duration # Assicuriamoci che usi l'intera lunghezza
