@@ -57,20 +57,16 @@ def main():
 
         active_params = filter(lambda p: p.requires_grad, model.parameters())
         optimizer = get_optimizer(active_params, lr=LR)
+        probe_target = target_ir[:int(PHASE1_DURATION * sample_rate)]
+        criterion.precompute_target_stft(probe_target)
 
         for iteration in range(probe_iters):
             optimizer.zero_grad()
-
-            curr_duration = PHASE1_DURATION # fixed short window for probing
-            pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
-            curr_samples = pred_ir.shape[0]
-            target_ir_cropped = target_ir[:curr_samples]
-
-            criterion.precompute_target_stft(target_ir_cropped)
-            loss = criterion(pred_ir, target_ir_cropped)
+            pred_ir = model(duration=PHASE1_DURATION, normalize=False, velCalc=False)
+            loss = criterion(pred_ir, probe_target)
             loss.backward()
 
-            optimizer.step()
+            optimizer.step()            
             optimizer.zero_grad()
 
             mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
