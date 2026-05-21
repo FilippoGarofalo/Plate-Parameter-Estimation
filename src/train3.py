@@ -17,7 +17,7 @@ def find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=
     best_loss = float('inf')
     best_params = None
     
-    test_duration = 0.05
+    test_duration = 0.1
     test_samples = int(44100 * test_duration)
     target_cropped = target_ir[:test_samples]
     
@@ -29,11 +29,10 @@ def find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=
     for i in range(num_samples):
         # 1. Mappatura
         ly_phys = 1.1 + lhs_samples[i, 0] * (4.0 - 1.1)
-        mu_phys = np.exp(np.log(2.43) + lhs_samples[i, 1] * (np.log(106.15) - np.log(2.43)))
-        d_mu_phys = np.exp(np.log(0.2805) + lhs_samples[i, 2] * (np.log(201.188) - np.log(0.2805)))
-        t0_mu_phys = np.exp(np.log(9.4e-5) + lhs_samples[i, 3] * (np.log(411.52) - np.log(9.4e-5)))
+        mu_phys = np.exp(np.log(2.43) + lhs_samples[i, 1] * (np.log(50.0) - np.log(2.43)))
+        d_mu_phys = np.exp(np.log(10.0) + lhs_samples[i, 2] * (np.log(190.0) - np.log(10.0)))
+        t0_mu_phys = np.exp(np.log(1.0) + lhs_samples[i, 3] * (np.log(50.0) - np.log(1.0)))
 
-        # 2. Inverse (Controlla che il weight di T0_over_mu sia uguale a quello in model.py!)
         ly_raw = inverse_map_sigm_linear(ly_phys, 1.1, 4.0)
         mu_raw = inverse_map_softplus_log(mu_phys, 2.43, 106.15)
         d_mu_raw = inverse_map_softplus_log(d_mu_phys, 0.2805, 201.188)
