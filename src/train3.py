@@ -97,15 +97,14 @@ def main():
         energy_weight=0.0, # Attivato solo in fase 2
         fft_sizes=[16, 32, 64, 128, 256, 1024, 4096],
        ).to(device)
+    
+    find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=50)
 
     criterion2 = MSELoss().to(device)
     # Note: Ly is NOT frozen here. Only spatial variables are.
     model.xo_raw.requires_grad = False
     model.yo_raw.requires_grad = False
     active_params = filter(lambda p: p.requires_grad, model.parameters())
-
-    # Perform Warm-Start
-    find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=50)
 
     # Re-initialize optimizer so it picks up the copied weights
     optimizer = get_optimizer(active_params, lr=LR)
