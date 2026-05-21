@@ -91,7 +91,7 @@ def main():
             print(f"  >> New best probe (loss={best_probe_loss:.6f})")
 
         # Explicitly free GPU memory before the next start
-        del model, optimizer, pred_ir, loss, target_ir_cropped
+        del model, optimizer, pred_ir, loss
         torch.cuda.empty_cache()
 
     phase1_time = time.time() - phase1_start
