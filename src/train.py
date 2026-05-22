@@ -106,7 +106,7 @@ def main():
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 0.5        
+    STFT_DURATION = 1.0        
     MSE_DURATION = duration - 0.05  # dynamic safety margin to avoid file-end clipping
     use_mse = False
     mse_start_iter = None         
@@ -125,7 +125,7 @@ def main():
 
         ### MODIFIED: Restored the correct curriculum logic ###
         if not use_mse:
-            curr_duration = min(0.05 + (iteration/500)*STFT_DURATION, STFT_DURATION)
+            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
         else:
             mse_iters_elapsed = iteration - mse_start_iter
             curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
@@ -144,6 +144,10 @@ def main():
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
+
+        scheduler.step(loss.item());
+        if iteration% 10 == 0:
+            print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
         # Step 4: Backward Pass
         loss.backward()
