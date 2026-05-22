@@ -15,7 +15,8 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = "target/ground_truth_test_1.1.npz"
+    #target_npz_path = "target/ground_truth_test_1.1.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz" 
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
@@ -43,7 +44,7 @@ def main():
     ).to(device)
 
     # ── PHASE 1: ZERO-SHOT PROBING ────────────────────────────
-    lhs_params = lhs_sample_raw_params(n_starts, seed=lhs_seed)
+    lhs_params = lhs_sample_raw_params_2d(n_starts, seed=lhs_seed)
     print(f"\nPhase 1 — Zero-shot probing {n_starts} LHS starts (Ultra-fast, No Gradients)")
 
     best_probe_loss  = float('inf')
@@ -101,7 +102,7 @@ def main():
     criterion2 = MSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.05, patience=60, min_lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, min_lr=1e-4)
     previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
