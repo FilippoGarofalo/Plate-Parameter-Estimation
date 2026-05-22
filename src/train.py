@@ -42,13 +42,17 @@ def main():
         fft_sizes=[64, 128, 256, 1024, 4096]
     ).to(device)
 
-    # ── PHASE 1: Probe all LHS starts ────────────────────────────
+    # ── PHASE 1: ZERO-SHOT PROBING ────────────────────────────
     lhs_params = lhs_sample_raw_params_2d(n_starts, seed=lhs_seed)
-    print(f"\nPhase 1 — probing {n_starts} LHS starts for {probe_iters} iterations each")
+    print(f"\nPhase 1 — Zero-shot probing {n_starts} LHS starts (Ultra-fast, No Gradients)")
 
     best_probe_loss  = float('inf')
     best_state_dict  = None
     phase1_start     = time.time()
+
+    # Precompute the probe target ONCE for all 100 samples
+    probe_target = target_ir[:int(PHASE1_DURATION * sample_rate)]
+    criterion.precompute_target_stft(probe_target)
 
     for start_idx, raw_params in enumerate(lhs_params):
         model = DifferentiableModalPlate(
@@ -57,40 +61,33 @@ def main():
             dtype=dtype
         ).to(device)
 
-        active_params = filter(lambda p: p.requires_grad, model.parameters())
-        optimizer = get_optimizer(active_params, lr=LR)
-        probe_target = target_ir[:int(PHASE1_DURATION * sample_rate)]
-        criterion.precompute_target_stft(probe_target)
-
-        for iteration in range(probe_iters):
-            optimizer.zero_grad()
+        # ⚡ CRITICAL FIX: No gradients! Just evaluate the physics once.
+        with torch.no_grad():
             pred_ir = model(duration=PHASE1_DURATION, normalize=False, velCalc=False)
-            loss = criterion(pred_ir, probe_target)
-            loss.backward()
+            probe_loss = criterion(pred_ir, probe_target).item()
 
-            optimizer.step()            
-            optimizer.zero_grad()
-
-        probe_loss = loss.item()
+        # Get physical parameters for logging
         mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
-            p.detach().cpu().item() for p in model.get_physical_parameters()
+            p.cpu().item() for p in model.get_physical_parameters()
         ]
-        print(f"  Start {start_idx + 1:02d}/{n_starts} | probe loss: {probe_loss:.6f} | "
-              f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
-              f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
-
+        
+        # Only print every 10th start to keep the console clean, OR if we find a new best
         if probe_loss < best_probe_loss:
             best_probe_loss = probe_loss
             best_state_dict = copy.deepcopy(model.state_dict())
+            
+            print(f"  Start {start_idx + 1:02d}/{n_starts} | probe loss: {probe_loss:.6f} | "
+                  f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
+                  f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
             print(f"  >> New best probe (loss={best_probe_loss:.6f})")
 
-        # Explicitly free GPU memory before the next start
-        del model, optimizer, pred_ir, loss
+        # Free GPU memory
+        del model, pred_ir
         torch.cuda.empty_cache()
 
     phase1_time = time.time() - phase1_start
     print(f"\nPhase 1 done in {phase1_time:.2f}s. Best probe loss: {best_probe_loss:.6f}")
-
+    
     # ── PHASE 2: Full optimization from best start ────────────────
     print(f"\nPhase 2 — full optimization for {num_iterations} iterations from best start")
 
