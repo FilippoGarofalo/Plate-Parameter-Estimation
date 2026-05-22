@@ -51,7 +51,7 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # Before the loop, define constants:
-    STFT_DURATION = 1          # fixed short window for STFT phase
+    STFT_DURATION = 0.05          # fixed short window for STFT phase
     MSE_DURATION = 1        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
@@ -70,7 +70,7 @@ def main():
             print(" [diag] forward...", flush=True)
 
         if not use_mse:
-            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)  # linearly grow from 0 to 50ms over first 500 iterations
+            curr_duration = STFT_DURATION
         else:
             mse_iters_elapsed = iteration - mse_start_iter
             curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
@@ -79,11 +79,13 @@ def main():
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
         #
-        if not use_mse:
-            criterion.precompute_target_stft(target_ir_cropped)
-            loss = criterion(pred_ir, target_ir_cropped)
-        else:
-            loss = criterion2(pred_ir, target_ir_cropped)
+        # if not use_mse:
+        #     criterion.precompute_target_stft(target_ir_cropped)
+        #     loss = criterion(pred_ir, target_ir_cropped)
+        # else:
+        #     loss = criterion2(pred_ir, target_ir_cropped)
+        criterion.precompute_target_stft(target_ir_cropped)
+        loss = criterion(pred_ir, target_ir_cropped)
 
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
@@ -101,7 +103,7 @@ def main():
         
         # Step 6: Update Parameters
         optimizer.step()
-        if not use_mse and loss.item() < 0.40:
+        if not use_mse and loss.item() < 0.60:
             use_mse = True
             mse_start_iter = iteration
             optimizer.param_groups[0]['lr'] = 0.01
