@@ -34,7 +34,7 @@ def main():
         mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
-        fft_sizes=[64, 256, 1024, 4096, 8192],
+        fft_sizes=[64, 128, 256, 1024, 4096],
        ).to(device)
     
     criterion2 = MSELoss().to(device)
@@ -51,7 +51,7 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # Before the loop, define constants:
-    STFT_DURATION = 0.5          # fixed short window for STFT phase
+    STFT_DURATION = 1          # fixed short window for STFT phase
     MSE_DURATION = 1        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
@@ -70,22 +70,20 @@ def main():
             print(" [diag] forward...", flush=True)
 
         if not use_mse:
-            curr_duration = min(0.20 + (iteration /500)*STFT_DURATION, STFT_DURATION)
+            curr_duration = min(0.05 + (iteration/500)*STFT_DURATION, STFT_DURATION)  # linearly grow from 0 to 50ms over first 500 iterations
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
+            curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
-        
-
+        #
         if not use_mse:
             criterion.precompute_target_stft(target_ir_cropped)
             loss = criterion(pred_ir, target_ir_cropped)
         else:
             loss = criterion2(pred_ir, target_ir_cropped)
-    
 
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
@@ -103,7 +101,7 @@ def main():
         
         # Step 6: Update Parameters
         optimizer.step()
-        if not use_mse and loss.item() < 0.60:
+        if not use_mse and loss.item() < 0.40:
             use_mse = True
             mse_start_iter = iteration
             optimizer.param_groups[0]['lr'] = 0.01
