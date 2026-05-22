@@ -17,7 +17,7 @@ def main():
     #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 2500
-    LR = 0.1
+    LR = 0.01
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -70,7 +70,7 @@ def main():
             print(" [diag] forward...", flush=True)
 
         if not use_mse:
-            curr_duration = min(0.05 + (iteration/500)*STFT_DURATION, STFT_DURATION)  # linearly grow from 0 to 50ms over first 500 iterations
+            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)  # linearly grow from 0 to 50ms over first 500 iterations
         else:
             mse_iters_elapsed = iteration - mse_start_iter
             curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
