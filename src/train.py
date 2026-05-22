@@ -87,7 +87,7 @@ def main():
 
     phase1_time = time.time() - phase1_start
     print(f"\nPhase 1 done in {phase1_time:.2f}s. Best probe loss: {best_probe_loss:.6f}")
-    
+
     # ── PHASE 2: Full optimization from best start ────────────────
     print(f"\nPhase 2 — full optimization for {num_iterations} iterations from best start")
 
@@ -156,7 +156,7 @@ def main():
         optimizer.step()
         
         ### MODIFIED: Restored Phase Switch Scheduler Reset ###
-        if not use_mse and loss.item() < 0.50:
+        if not use_mse and loss.item() < 0.40:
             use_mse = True
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
