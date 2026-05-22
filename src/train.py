@@ -13,11 +13,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_1.npz"
+    target_npz_path = "target/ground_truth_test_1.1.npz"
     #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 2500
-    LR = 0.01
+    LR = 0.1
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -34,7 +34,7 @@ def main():
         mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
-        fft_sizes=[128, 256, 1024, 4096, 8192],
+        fft_sizes=[64, 256, 1024, 4096, 8192],
        ).to(device)
     
     criterion2 = MSELoss().to(device)
@@ -51,7 +51,7 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # Before the loop, define constants:
-    STFT_DURATION = 0.1          # fixed short window for STFT phase
+    STFT_DURATION = 0.5          # fixed short window for STFT phase
     MSE_DURATION = 1        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
@@ -70,22 +70,22 @@ def main():
             print(" [diag] forward...", flush=True)
 
         if not use_mse:
-            curr_duration = STFT_DURATION
+            curr_duration = min(0.05 + (iteration /500)*STFT_DURATION, STFT_DURATION)
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(0.1 + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
+            curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
-        #
-        # if not use_mse:
-        #     criterion.precompute_target_stft(target_ir_cropped)
-        #     loss = criterion(pred_ir, target_ir_cropped)
-        # else:
-        #     loss = criterion2(pred_ir, target_ir_cropped)
-        criterion.precompute_target_stft(target_ir_cropped)
-        loss = criterion(pred_ir, target_ir_cropped)
+        
+
+        if not use_mse:
+            criterion.precompute_target_stft(target_ir_cropped)
+            loss = criterion(pred_ir, target_ir_cropped)
+        else:
+            loss = criterion2(pred_ir, target_ir_cropped)
+    
 
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
