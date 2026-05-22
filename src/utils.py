@@ -164,14 +164,14 @@ def inverse_map_sigm_linear(y, min_v, max_v, scale=1.0):
 
 
 def inverse_map_sigm_log(y, min_v, max_v, scale=1.0, temperature=1.0):
-    log_y = torch.log10(y)
-    log_min = torch.log10(min_v)
-    log_max = torch.log10(max_v)
+    log_y = np.log10(y)
+    log_min = np.log10(min_v)
+    log_max = np.log10(max_v)
 
     norm_y = (log_y - log_min) / (log_max - log_min)
-    norm_y = torch.clip(norm_y, 1e-6, 1.0 - 1e-6)
+    norm_y = np.clip(norm_y, 1e-6, 1.0 - 1e-6)
 
-    x_raw = torch.log(norm_y / (1.0 - norm_y)) / scale
+    x_raw = np.log(norm_y / (1.0 - norm_y)) / scale
     return float(x_raw)
 
 
@@ -182,7 +182,10 @@ def map_sigm_linear(x, min_v, max_v, dtype=torch.float32, device='cpu', weight=1
    
 
 def map_sigm_log(x, min_v, max_v, dtype=torch.float32, device='cpu', weight=1.0, eps=1e-10):
-    norm_x = torch.sigmoid(x)
+    min_v = torch.as_tensor(min_v, dtype=dtype, device=device)
+    max_v = torch.as_tensor(max_v, dtype=dtype, device=device)
+
+    norm_x = torch.sigmoid(x * weight)
     log_min = torch.log10(min_v)
     log_max = torch.log10(max_v)
     result = 10.0 ** (log_min + norm_x * (log_max - log_min))
