@@ -70,7 +70,7 @@ def main():
             print(" [diag] forward...", flush=True)
 
         if not use_mse:
-            curr_duration = min(0.05 + (iteration /500)*STFT_DURATION, STFT_DURATION)
+            curr_duration = min(0.20 + (iteration /500)*STFT_DURATION, STFT_DURATION)
         else:
             mse_iters_elapsed = iteration - mse_start_iter
             curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
