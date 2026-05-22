@@ -34,7 +34,7 @@ def main():
         mse_weight=0.0,
         stft_weight=1.0,
         energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024, 4096],
+        fft_sizes=[128, 256, 1024, 4096, 8192],
        ).to(device)
     
     criterion2 = MSELoss().to(device)
@@ -73,7 +73,7 @@ def main():
             curr_duration = STFT_DURATION
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(0.05 + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
+            curr_duration = min(0.1 + (mse_iters_elapsed / 500) * MSE_DURATION, MSE_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
