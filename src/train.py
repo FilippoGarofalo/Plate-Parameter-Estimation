@@ -43,7 +43,7 @@ def main():
 
     optimizer = get_optimizer(active_params ,lr=LR)
 
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=100, min_lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, min_lr=1e-4)
     previous_lr = LR
     
 
@@ -101,12 +101,14 @@ def main():
         
         # Step 6: Update Parameters
         optimizer.step()
-        if not use_mse and loss.item() < 0.40:
+        if not use_mse and loss.item() < 0.50:
             use_mse = True
             mse_start_iter = iteration
             optimizer.param_groups[0]['lr'] = 0.01
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
-
+            scheduler.step(loss.item())  
+            if iteration % 10 == 0:
+                print(f" [diag] MSE phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
 
         optimizer.zero_grad()
         
