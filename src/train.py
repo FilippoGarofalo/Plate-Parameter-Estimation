@@ -17,7 +17,7 @@ def main():
     #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 2500
-    LR = 0.01
+    LR = 0.1
     dtype = torch.float64
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -52,7 +52,7 @@ def main():
 
     # Before the loop, define constants:
     STFT_DURATION = 1          # fixed short window for STFT phase
-    MSE_DURATION = 0.5        # progressive cap for MSE phase
+    MSE_DURATION = 1        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
 
