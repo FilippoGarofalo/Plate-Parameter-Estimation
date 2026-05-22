@@ -13,7 +13,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    target_npz_path = "target/ground_truth_test_1.1.npz"
+    target_npz_path = "target/ground_truth_test_1.npz"
     #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate = 44100
     num_iterations = 2500
@@ -51,7 +51,7 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     # Before the loop, define constants:
-    STFT_DURATION = 0.05          # fixed short window for STFT phase
+    STFT_DURATION = 0.1          # fixed short window for STFT phase
     MSE_DURATION = 1        # progressive cap for MSE phase
     use_mse = False
     mse_start_iter = None         # track when MSE phase begins
