@@ -116,10 +116,10 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 1. MODAL GRID 
         # =========================
-        DDx = 110
-        DDy = 439
+        #DDx = 110
+        #DDy = 439
 
-        '''
+    
         with torch.no_grad():
             T0_v  = T0_over_mu.item()
             D_v   = D_over_mu.item()
@@ -129,7 +129,7 @@ class DifferentiableModalPlate(nn.Module):
             s     = np.sqrt(max(inner, 0.0))
             DDx   = max(int(np.floor(1.0  / np.pi * s)) + 1, 1)
             DDy   = max(int(np.floor(Ly_v / np.pi * s)) + 1, 1)
-        '''
+        
         m_idx = torch.arange(1, DDx + 1, device=device, dtype=self.dtype)
         n_idx = torch.arange(1, DDy + 1, device=device, dtype=self.dtype)
 

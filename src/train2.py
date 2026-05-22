@@ -25,7 +25,7 @@ def main():
     probe_iters     = 50   # short run per LHS start to find best basin
     lhs_seed        = 42
 
-    PHASE1_DURATION = 0.5  # fixed short window for LHS probing phase
+    PHASE1_DURATION = 0.2  # fixed short window for LHS probing phase
     PHASE2_DURATION = 1 # full target duration for final optimization phase
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
