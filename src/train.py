@@ -8,22 +8,22 @@ from loss2 import MSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params
+from lhs import lhs_sample_raw_params_2d
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    #target_npz_path = "target/ground_truth_test_1.1.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz" 
+    target_npz_path = "target/ground_truth_test_1.1.npz"
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 1000     
+    n_starts        = 100     
+    probe_iters     = 50   # short run per LHS start to find best basin
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
@@ -101,7 +101,7 @@ def main():
     criterion2 = MSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=100, min_lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-4)
     previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
@@ -160,14 +160,14 @@ def main():
         optimizer.step()
         
         ### MODIFIED: Restored Phase Switch Scheduler Reset ###
-        if not use_mse and loss.item() < 0.0000001:
+        if not use_mse and loss.item() < 0.10:
             use_mse = True
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
                 param_group['lr'] = 0.01
             
             # Re-initialize scheduler to forget Phase 1 history
-            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=100, min_lr=1e-5)
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-5)
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
 
         ### MODIFIED: Restored continuous Scheduler step logic ###
