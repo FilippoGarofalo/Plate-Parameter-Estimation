@@ -107,12 +107,12 @@ def main():
             optimizer.param_groups[0]['lr'] = 0.01
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
 
-        if use_mse:
-            scheduler.step(loss.item())
-            if iteration % 10 == 0:
-                print(f" [diag] MSE phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
-        
+        if use_mse and loss.item() < 1.0:
+            optimizer.param_groups[0]['lr'] = 0.001
+            if(iteration % 10 == 0):
+                print(f" [diag] MSE phase: Reducing LR to {0.001}", flush=True)
         optimizer.zero_grad()
+        
         
         #if use_mse and curr_duration == MSE_DURATION:
         #    scheduler.step(loss.item())
