@@ -67,7 +67,7 @@ def train_one(target_npz_path: str, device: torch.device) -> dict:
     # ── load ──────────────────────────────────────────────────────────────────
     target_ir    = load_challenge_npz(target_npz_path, device=device, dtype=DTYPE)
     duration     = len(target_ir) / SAMPLE_RATE
-    MSE_DURATION = min(duration - 0.05, 2.0)   # cap at 2s — avoids OOM from huge mode×sample tensors
+    MSE_DURATION = min(duration - 0.05, 1.0)   # cap at 1s — avoids OOM from huge mode×sample tensors
     print(f"  {len(target_ir)} samples  ({duration:.2f}s)  MSE cap={MSE_DURATION:.2f}s")
 
     criterion  = Loss(mse_weight=0.0, stft_weight=1.0, energy_weight=0.0,
