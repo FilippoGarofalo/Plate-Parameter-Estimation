@@ -67,8 +67,8 @@ def train_one(target_npz_path: str, device: torch.device) -> dict:
     # ── load ──────────────────────────────────────────────────────────────────
     target_ir    = load_challenge_npz(target_npz_path, device=device, dtype=DTYPE)
     duration     = len(target_ir) / SAMPLE_RATE
-    MSE_DURATION = duration - 0.05
-    print(f"  {len(target_ir)} samples  ({duration:.2f}s)")
+    MSE_DURATION = min(duration - 0.05, 2.0)   # cap at 2s — avoids OOM from huge mode×sample tensors
+    print(f"  {len(target_ir)} samples  ({duration:.2f}s)  MSE cap={MSE_DURATION:.2f}s")
 
     criterion  = Loss(mse_weight=0.0, stft_weight=1.0, energy_weight=0.0,
                       fft_sizes=[64, 128, 256, 1024, 4096]).to(device)
@@ -113,9 +113,11 @@ def train_one(target_npz_path: str, device: torch.device) -> dict:
 
     use_mse        = False
     mse_start_iter = None
+    mse_start_dur  = None   # duration at the moment of phase switch
     switch_iter    = None
     best_stft_loss  = float('inf')
     stft_no_improve = 0
+    curr_dur        = 0.05  # tracked as state so MSE can continue from where STFT left off
 
     log = {k: [] for k in ['iter', 'loss', 'phase']}
 
@@ -126,8 +128,9 @@ def train_one(target_npz_path: str, device: torch.device) -> dict:
         if not use_mse:
             curr_dur = min(0.05 + (iteration / NUM_ITERATIONS) * STFT_DURATION, STFT_DURATION)
         else:
+            # grow from the window size at switch time → MSE_DURATION, never jump
             elapsed  = iteration - mse_start_iter
-            curr_dur = min(STFT_DURATION + (elapsed / 500) * (MSE_DURATION - STFT_DURATION),
+            curr_dur = min(mse_start_dur + (elapsed / 500) * (MSE_DURATION - mse_start_dur),
                            MSE_DURATION)
 
         pred_ir           = model(duration=curr_dur, normalize=False, velCalc=False)
@@ -154,13 +157,16 @@ def train_one(target_npz_path: str, device: torch.device) -> dict:
             if stft_no_improve >= STFT_PATIENCE:
                 use_mse        = True
                 mse_start_iter = iteration
+                mse_start_dur  = curr_dur   # continue from current window, no jump
                 switch_iter    = iteration
+                torch.cuda.empty_cache()
                 for pg in optimizer.param_groups:
                     pg['lr'] = 0.01
                 scheduler   = ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
                                                 patience=20, min_lr=1e-5)
                 previous_lr = 0.01
-                print(f"  [switch] iter {iteration:04d} → MSE  best_stft={best_stft_loss:.4f}")
+                print(f"  [switch] iter {iteration:04d} → MSE  "
+                      f"best_stft={best_stft_loss:.4f}  dur={curr_dur:.3f}s→{MSE_DURATION:.2f}s")
 
         optimizer.zero_grad()
         scheduler.step(loss.item())
@@ -185,7 +191,6 @@ def train_one(target_npz_path: str, device: torch.device) -> dict:
                   f"mu={mu:.3f} D/mu={D_mu:.5f} T0/mu={T0_mu:.5f}")
 
     print(f"  Phase 2: {time.time()-t1:.1f}s")
-
     mu, D_mu, T0_mu, Ly, xo, yo = [
         p.detach().cpu().item() for p in model.get_physical_parameters()]
 
