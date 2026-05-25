@@ -4,7 +4,7 @@ import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
 from loss2 import MSELoss
-from utils import load_challenge_npz, inverse_map_sigm_linear, inverse_map_softplus_log
+from utils import load_challenge_npz, inverse_map_sigm_linear, inverse_map_sigm_log
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from scipy.stats import qmc
@@ -39,9 +39,9 @@ def find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=
 
         # 2. Inverse (Con i weight corretti rispetto a model.py)
         ly_raw = inverse_map_sigm_linear(ly_phys, 1.1, 4.0)
-        mu_raw = inverse_map_softplus_log(mu_phys, 2.43, 106.15)
-        d_mu_raw = inverse_map_softplus_log(d_mu_phys, 0.2805, 201.188)
-        t0_mu_raw = inverse_map_softplus_log(t0_mu_phys, 9.4e-5, 411.52, weight=0.1) 
+        mu_raw = inverse_map_sigm_log(mu_phys, 2.43, 106.15)
+        d_mu_raw = inverse_map_sigm_log(d_mu_phys, 0.2805, 201.188)
+        t0_mu_raw = inverse_map_sigm_log(t0_mu_phys, 9.4e-5, 411.52, scale=0.1)
 
         # 3. Iniezione temporanea
         with torch.no_grad():

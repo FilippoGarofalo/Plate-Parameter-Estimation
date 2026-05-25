@@ -106,10 +106,16 @@ def main():
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 1.0        
+    STFT_DURATION = 1.0
     MSE_DURATION = duration - 0.05  # dynamic safety margin to avoid file-end clipping
     use_mse = False
-    mse_start_iter = None         
+    mse_start_iter = None
+
+    # Plateau-based phase switch (no hardcoded loss threshold)
+    best_stft_loss  = float('inf')
+    stft_no_improve = 0
+    STFT_PATIENCE   = 150    # switch after this many iters with no improvement
+    STFT_MIN_DELTA  = 1e-4   # minimum improvement to count as progress
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -145,9 +151,6 @@ def main():
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
 
-        scheduler.step(loss.item());
-        if iteration% 10 == 0:
-            print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
         # Step 4: Backward Pass
         loss.backward()
@@ -159,24 +162,31 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         
-        ### MODIFIED: Restored Phase Switch Scheduler Reset ###
-        if not use_mse and loss.item() < 0.10:
-            use_mse = True
-            mse_start_iter = iteration
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = 0.01
-            
-            # Re-initialize scheduler to forget Phase 1 history
-            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-5)
-            print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
+        # Plateau-based STFT → MSE switch
+        if not use_mse:
+            if loss.item() < best_stft_loss - STFT_MIN_DELTA:
+                best_stft_loss  = loss.item()
+                stft_no_improve = 0
+            else:
+                stft_no_improve += 1
 
-        ### MODIFIED: Restored continuous Scheduler step logic ###
-        if use_mse and curr_duration == MSE_DURATION:
-            scheduler.step(loss.item())
-            if iteration % 10 == 0:
-                print(f" [diag] MSE phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
-        
+            if stft_no_improve >= STFT_PATIENCE:
+                use_mse        = True
+                mse_start_iter = iteration
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = 0.01
+                # Re-initialize scheduler to forget STFT phase history
+                scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-5)
+                print(f"\n {'='*58}")
+                print(f"  [switch] Iter {iteration:04d} → MSE phase | "
+                      f"best_stft={best_stft_loss:.4f} | no_improve={stft_no_improve}")
+                print(f" {'='*58}\n")
+
         optimizer.zero_grad()
+
+        scheduler.step(loss.item())
+        if iteration % 10 == 0:
+            print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
         
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
