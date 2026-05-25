@@ -120,9 +120,8 @@ def main():
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
-    idx = -1
+
     for iteration in range(num_iterations):
-        idx += 1
         optimizer.zero_grad()
 
         # Step 2: Forward Pass
