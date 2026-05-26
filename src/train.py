@@ -106,7 +106,7 @@ def main():
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 0.5        
+    STFT_DURATION = 1.0        
     MSE_DURATION = min(duration - 0.05, 1)  # dynamic safety margin to avoid file-end clipping
     use_mse = False
     mse_start_iter = None
@@ -123,10 +123,10 @@ def main():
 
         ### MODIFIED: Restored the correct curriculum logic ###
         if not use_mse:
-            curr_duration = STFT_DURATION
+            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 200) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
+            curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
         ### END MODIFIED ###
     
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
@@ -154,13 +154,13 @@ def main():
             print(f" [diag] grad norms: {grad_norms}", flush=True)
         
         # Step 5b: Clip gradients to prevent sigmoid saturation blow-ups
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         # Step 6: Update Parameters
         optimizer.step()
         
         ### FIX: Phase switch to MSE — use a low LR to avoid sigmoid saturation ###
-        if not use_mse and loss.item() < 0.50:
+        if not use_mse and loss.item() < 0.10:
             use_mse = True
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
