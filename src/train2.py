@@ -15,7 +15,8 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = "target/ground_truth_test_1.1.npz"
+    #target_npz_path = "target/ground_truth_test_1.1.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0005.wav"
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
@@ -166,7 +167,7 @@ def main():
             for param_group in optimizer.param_groups:
                 param_group['lr'] = 0.01
             
-            
+
         ### MODIFIED: Restored continuous Scheduler step logic ###
         if use_mse and curr_duration == MSE_DURATION:
             scheduler.step(loss.item())
