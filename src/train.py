@@ -15,7 +15,7 @@ def main():
     print(f"Using device: {device}")
 
     #target_npz_path = "target/ground_truth_test_1.1.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0002.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz"
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
@@ -26,7 +26,7 @@ def main():
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
-    PHASE1_DURATION = 0.5  
+    PHASE1_DURATION = 0.2  
     ### END MODIFIED ###
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
