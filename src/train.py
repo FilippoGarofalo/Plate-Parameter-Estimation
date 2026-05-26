@@ -15,8 +15,8 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = "target/ground_truth_test_1.1.npz"
-    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
+    #target_npz_path = "target/ground_truth_test_1.1.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0002.npz"
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
@@ -115,7 +115,8 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     STFT_DURATION = 1.0
-    MSE_DURATION = min(duration - 0.05, 1)  # dynamic safety margin to avoid file-end clipping
+    MSE_DURATION  = duration - 0.05  # use full IR tail; the `min(...,1)` cap was wrong —
+                                     # it made MSE_DURATION == STFT_DURATION, providing zero benefit
     use_mse = False
     mse_start_iter = None
 
@@ -162,8 +163,10 @@ def main():
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
 
-        if iteration% 10 == 0:
-            print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
+        if iteration % 10 == 0:
+            _lv = loss.item()
+            _ls = f"{_lv:.2e}" if _lv < 1e-3 else f"{_lv:.4f}"
+            print(f" [diag] iter {iteration}, loss={_ls}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
         # Step 4: Backward Pass
         loss.backward()
@@ -210,7 +213,9 @@ def main():
             mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
             p.detach().cpu().item() for p in model.get_physical_parameters()
             ]
-            print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
+            loss_val = loss.item()
+            loss_str = f"{loss_val:.2e}" if loss_val < 1e-3 else f"{loss_val:.6f}"
+            print(f"Iteration {iteration:04d} | Loss: {loss_str}")
             print(f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
             f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
             print("-" * 60)
