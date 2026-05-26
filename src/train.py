@@ -107,7 +107,7 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     STFT_DURATION = 0.5        
-    MSE_DURATION = min(duration - 0.05, 1)  # dynamic safety margin to avoid file-end clipping
+    MSE_DURATION = min(duration - 0.05, 0.5)  # dynamic safety margin to avoid file-end clipping
     use_mse = False
     mse_start_iter = None
 
@@ -126,7 +126,7 @@ def main():
             curr_duration = STFT_DURATION
         else:
             mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
+            curr_duration = MSE_DURATION
         ### END MODIFIED ###
     
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
