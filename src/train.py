@@ -4,7 +4,6 @@ import copy  ### MODIFIED: Added missing import ###
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import NMSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -106,7 +105,6 @@ def main():
         energy_weight=0.0,
         fft_sizes=[64, 128, 256, 1024, 4096]
     ).to(device)
-    criterion2 = NMSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-3)
@@ -115,21 +113,6 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     STFT_DURATION = 1.0
-    MSE_DURATION  = duration - 0.05  # use full IR tail; the `min(...,1)` cap was wrong —
-                                     # it made MSE_DURATION == STFT_DURATION, providing zero benefit
-    use_mse = False
-    mse_start_iter = None
-
-    # ── Plateau-based phase switch ────────────────────────────────
-    # Switch to MSE when STFT loss stops improving meaningfully.
-    # Mirrors ReduceLROnPlateau logic: if relative improvement over
-    # the last STFT_PLATEAU_PATIENCE steps is < STFT_PLATEAU_REL_TOL,
-    # fire the switch.
-    STFT_PLATEAU_PATIENCE  = 100     # iterations without rel-improvement
-    STFT_PLATEAU_REL_TOL   = 5e-4   # 0.05% relative improvement threshold
-    STFT_MIN_ITERS         = 300    # don't switch during the warmup ramp
-    _stft_best             = float('inf')
-    _stft_no_improve       = 0
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -141,23 +124,14 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        ### MODIFIED: Restored the correct curriculum logic ###
-        if not use_mse:
-            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
-        else:
-            mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
-        ### END MODIFIED ###
-    
+        curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
+
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
-        
-        if not use_mse:
-            criterion.precompute_target_stft(target_ir_cropped)
-            loss = criterion(pred_ir, target_ir_cropped)
-        else:
-            loss = criterion2(pred_ir, target_ir_cropped)
+
+        criterion.precompute_target_stft(target_ir_cropped)
+        loss = criterion(pred_ir, target_ir_cropped)
 
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
@@ -181,31 +155,11 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         
-        # ── Plateau-based phase switch ────────────────────────────────
-        if not use_mse:
-            curr_loss = loss.item()
-            if curr_loss < _stft_best * (1.0 - STFT_PLATEAU_REL_TOL):
-                _stft_best       = curr_loss
-                _stft_no_improve = 0
-            else:
-                _stft_no_improve += 1
-
-            if iteration >= STFT_MIN_ITERS and _stft_no_improve >= STFT_PLATEAU_PATIENCE:
-                use_mse        = True
-                mse_start_iter = iteration
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = 1e-3  # low LR — avoids sigmoid saturation on landscape change
-                scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-6)
-                print(f" [switch] → MSE at iter {iteration}, loss={curr_loss:.4f} "
-                      f"(STFT plateaued {STFT_PLATEAU_PATIENCE} iters, best={_stft_best:.4f})")
-
-        # ── Scheduler step (every iteration, not gated on duration) ──
+        # ── Scheduler step ──
         scheduler.step(loss.item())
         if iteration % 10 == 0:
-            phase_tag = "MSE" if use_mse else "STFT"
-            no_improve_info = f", no_improve={_stft_no_improve}/{STFT_PLATEAU_PATIENCE}" if not use_mse else ""
-            print(f" [diag] {phase_tag} phase: iter {iteration}, loss={loss.item():.4f}, "
-                  f"lr={optimizer.param_groups[0]['lr']:.6f}{no_improve_info}")
+            print(f" [diag] STFT phase: iter {iteration}, loss={loss.item():.4f}, "
+                  f"lr={optimizer.param_groups[0]['lr']:.6f}")
         
         
         # Step 7: Print logs and parameter progress
