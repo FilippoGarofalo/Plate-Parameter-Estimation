@@ -101,7 +101,7 @@ def main():
     criterion2 = NMSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, min_lr=1e-4)
     previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
@@ -166,10 +166,7 @@ def main():
             for param_group in optimizer.param_groups:
                 param_group['lr'] = 0.01
             
-            # Re-initialize scheduler to forget Phase 1 history
-            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-5)
-            print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
-
+            
         ### MODIFIED: Restored continuous Scheduler step logic ###
         if use_mse and curr_duration == MSE_DURATION:
             scheduler.step(loss.item())
