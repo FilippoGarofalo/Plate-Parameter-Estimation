@@ -15,15 +15,15 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = "target/ground_truth_test_1.1.npz"
+    #target_npz_path = "target/ground_truth_test_1.1.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 100     
-    probe_iters     = 50   # short run per LHS start to find best basin
+    n_starts        = 100  
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
@@ -101,7 +101,7 @@ def main():
     criterion2 = MSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-3)
     previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
@@ -114,9 +114,7 @@ def main():
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
-    idx = -1
     for iteration in range(num_iterations):
-        idx += 1
         optimizer.zero_grad()
 
         # Step 2: Forward Pass
@@ -145,7 +143,6 @@ def main():
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
 
-        scheduler.step(loss.item());
         if iteration% 10 == 0:
             print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
@@ -175,6 +172,11 @@ def main():
             scheduler.step(loss.item())
             if iteration % 10 == 0:
                 print(f" [diag] MSE phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
+        elif not use_mse and curr_duration == STFT_DURATION:
+            scheduler.step(loss.item())
+            if iteration % 10 == 0:
+                print(f" [diag] STFT phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
+        
         
         optimizer.zero_grad()
         
