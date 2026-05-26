@@ -1,6 +1,7 @@
+import argparse
 import torch
 import time
-import copy  ### MODIFIED: Added missing import ###
+import copy
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
@@ -10,12 +11,15 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from lhs import lhs_sample_raw_params_2d
 
 def main():
+    parser = argparse.ArgumentParser(description="Plate parameter estimation")
+    parser.add_argument("target_npz", type=str, help="Path to target .npz IR file")
+    args = parser.parse_args()
+
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    #target_npz_path = "target/ground_truth_test_1.1.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz"
+    target_npz_path = args.target_npz
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
