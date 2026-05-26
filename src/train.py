@@ -15,8 +15,8 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    #target_npz_path = "target/ground_truth_test_1.1.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
+    target_npz_path = "target/ground_truth_test_1.1.npz"
+    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz"
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
@@ -153,15 +153,20 @@ def main():
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
             print(f" [diag] grad norms: {grad_norms}", flush=True)
         
+        # Step 5b: Clip gradients to prevent sigmoid saturation blow-ups
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
         # Step 6: Update Parameters
         optimizer.step()
         
-        ### MODIFIED: Restored Phase Switch Scheduler Reset ###
+        ### FIX: Phase switch to MSE — use a low LR to avoid sigmoid saturation ###
         if not use_mse and loss.item() < 0.50:
             use_mse = True
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
-                param_group['lr'] = 0.5
+                param_group['lr'] = 1e-3   # was 0.5 — large LR blew params to sigmoid boundary
+            # Reset scheduler state for the new phase
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-6)
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
 
         ### MODIFIED: Restored continuous Scheduler step logic ###
@@ -174,8 +179,6 @@ def main():
             if iteration % 10 == 0:
                 print(f" [diag] STFT phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
         
-        
-        optimizer.zero_grad()
         
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:

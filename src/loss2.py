@@ -18,4 +18,5 @@ class MSELoss(nn.Module):
         pred_norm = pred / target_energy
         target_norm = target / target_energy
 
-        return F.mse_loss(pred_norm, target_norm) / (target_energy**2 + self.eps)
+        # Simply compare RMS-normalised signals — no second division by energy^2
+        return F.mse_loss(pred_norm, target_norm)
