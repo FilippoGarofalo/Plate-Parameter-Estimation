@@ -157,7 +157,7 @@ def main():
         optimizer.step()
         
         ### MODIFIED: Restored Phase Switch Scheduler Reset ###
-        if not use_mse and loss.item() < 0.10:
+        if not use_mse and loss.item() < 0.50:
             use_mse = True
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
