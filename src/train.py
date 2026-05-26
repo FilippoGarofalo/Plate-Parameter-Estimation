@@ -124,7 +124,7 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
+        curr_duration = min(0.05 + (iteration/500)*STFT_DURATION, STFT_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
@@ -156,7 +156,7 @@ def main():
         optimizer.step()
         
         # ── Scheduler step ──
-        scheduler.step(loss.item())
+        #scheduler.step(loss.item())
         if iteration % 10 == 0:
             print(f" [diag] STFT phase: iter {iteration}, loss={loss.item():.4f}, "
                   f"lr={optimizer.param_groups[0]['lr']:.6f}")
