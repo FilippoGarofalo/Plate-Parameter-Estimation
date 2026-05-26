@@ -35,12 +35,13 @@ def main():
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
-    criterion = Loss(
-        mse_weight=0.0,
-        stft_weight=1.0,
-        energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024, 4096]
-    ).to(device)
+    # criterion = Loss(
+    #     mse_weight=0.0,
+    #     stft_weight=1.0,
+    #     energy_weight=0.0,
+    #     fft_sizes=[64, 128, 256, 1024, 4096]
+    # ).to(device)
+    criterion = MSELoss().to(device)  # Start with MSE for simplicity in Phase 1
 
     # ── PHASE 1: ZERO-SHOT PROBING ────────────────────────────
     lhs_params = lhs_sample_raw_params_2d(n_starts, seed=lhs_seed)
