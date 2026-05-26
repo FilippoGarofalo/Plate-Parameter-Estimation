@@ -10,28 +10,26 @@ from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from lhs import lhs_sample_raw_params_2d
 
-def main():
-    parser = argparse.ArgumentParser(description="Plate parameter estimation")
-    parser.add_argument("target_npz", type=str, help="Path to target .npz IR file")
-    args = parser.parse_args()
-
+def train_on_target(
+    target_npz_path,
+    num_iterations=1000,
+    print_every=100,
+    progress_path="target/train_progress.npz",
+):
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = args.target_npz
-    sample_rate     = 44100
-    num_iterations  = 1000
-    LR              = 0.1
-    dtype           = torch.float64
+    sample_rate = 44100
+    LR = 0.1
+    dtype = torch.float64
 
     # Multi-start settings
-    n_starts        = 100  
-    lhs_seed        = 42
+    n_starts = 100
+    lhs_seed = 42
 
-    ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
-    PHASE1_DURATION = 0.2  
-    ### END MODIFIED ###
+    # Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
+    PHASE1_DURATION = 0.2
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
@@ -120,6 +118,7 @@ def main():
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
+    last_loss = None
     for iteration in range(num_iterations):
         optimizer.zero_grad()
 
@@ -127,7 +126,7 @@ def main():
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (iteration/500)*STFT_DURATION, STFT_DURATION)
+        curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
@@ -140,7 +139,7 @@ def main():
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
 
-        if iteration % 10 == 0:
+        if iteration % print_every == 0:
             _lv = loss.item()
             _ls = f"{_lv:.2e}" if _lv < 1e-3 else f"{_lv:.4f}"
             print(f" [diag] iter {iteration}, loss={_ls}, lr={optimizer.param_groups[0]['lr']:.6f}")
@@ -163,17 +162,18 @@ def main():
         # making loss values incomparable; stepping then causes premature LR reductions.
         if curr_duration >= STFT_DURATION:
             scheduler.step(loss.item())
-        if iteration % 10 == 0:
+        if iteration % print_every == 0:
             print(f" [diag] STFT phase: iter {iteration}, loss={loss.item():.4f}, "
                   f"lr={optimizer.param_groups[0]['lr']:.6f}")
         
         
         # Step 7: Print logs and parameter progress
-        if iteration % 10 == 0 or iteration == num_iterations - 1:
+        if iteration % print_every == 0 or iteration == num_iterations - 1:
             mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
             p.detach().cpu().item() for p in model.get_physical_parameters()
             ]
             loss_val = loss.item()
+            last_loss = loss_val
             loss_str = f"{loss_val:.2e}" if loss_val < 1e-3 else f"{loss_val:.6f}"
             print(f"Iteration {iteration:04d} | Loss: {loss_str}")
             print(f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
@@ -192,8 +192,9 @@ def main():
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")
 
-    np.savez('target/train_progress.npz', **{k: np.array(v) for k, v in progress.items()})
-    print("Training progress saved to target/train_progress.npz")
+    if progress_path:
+        np.savez(progress_path, **{k: np.array(v) for k, v in progress.items()})
+        print(f"Training progress saved to {progress_path}")
 
     # 4. RESULTS
     mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
@@ -207,6 +208,39 @@ def main():
     print(f"xo := {xo:.4f} m")
     print(f"yo := {yo:.4f} m")
     print("==================================")
+
+    result = {
+        "loss": last_loss if last_loss is not None else loss.item(),
+        "params": {
+            "mu": mu,
+            "D_over_mu": D_over_mu,
+            "T0_over_mu": T0_over_mu,
+            "Ly": Ly,
+            "xo": xo,
+            "yo": yo,
+        },
+    }
+
+    del model, criterion, optimizer, scheduler, target_ir, probe_target
+    torch.cuda.empty_cache()
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Plate parameter estimation")
+    parser.add_argument("target_npz", type=str, help="Path to target .npz IR file")
+    parser.add_argument("--print-every", type=int, default=100, help="Log every N iterations")
+    parser.add_argument("--num-iterations", type=int, default=1000, help="Number of iterations")
+    parser.add_argument("--progress-path", type=str, default="target/train_progress.npz")
+    args = parser.parse_args()
+
+    train_on_target(
+        args.target_npz,
+        num_iterations=args.num_iterations,
+        print_every=args.print_every,
+        progress_path=args.progress_path,
+    )
+
 
 if __name__ == "__main__":
     main()
