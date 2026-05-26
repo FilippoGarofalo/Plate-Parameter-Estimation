@@ -23,7 +23,7 @@ def main():
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 100  
+    n_starts        = 150  
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
@@ -162,9 +162,6 @@ def main():
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
                 param_group['lr'] = 0.5
-            
-            # Re-initialize scheduler to forget Phase 1 history
-            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-5)
             print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
 
         ### MODIFIED: Restored continuous Scheduler step logic ###
