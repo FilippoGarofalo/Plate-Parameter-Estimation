@@ -27,7 +27,7 @@ def main():
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
-    PHASE1_DURATION = 0.2  
+    PHASE1_DURATION = 0.5  
     ### END MODIFIED ###
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -106,7 +106,7 @@ def main():
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 1.0        
+    STFT_DURATION = 0.5        
     MSE_DURATION = min(duration - 0.05, 1)  # dynamic safety margin to avoid file-end clipping
     use_mse = False
     mse_start_iter = None
@@ -128,7 +128,7 @@ def main():
             mse_iters_elapsed = iteration - mse_start_iter
             curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
         ### END MODIFIED ###
-
+    
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
