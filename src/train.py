@@ -23,7 +23,7 @@ def main():
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 150  
+    n_starts        = 100  
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
