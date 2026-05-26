@@ -53,7 +53,7 @@ def main():
 
     # Precompute the probe target ONCE for all 100 samples
     probe_target = target_ir[:int(PHASE1_DURATION * sample_rate)]
-    criterion.precompute_target_stft(probe_target)
+    #criterion.precompute_target_stft(probe_target)
 
     for start_idx, raw_params in enumerate(lhs_params):
         model = DifferentiableModalPlate(
@@ -98,7 +98,14 @@ def main():
     ).to(device)
     model.load_state_dict(best_state_dict)
 
+
     ### MODIFIED: Cleaned up duplicate declarations ###
+    criterion = Loss(
+        mse_weight=0.0,
+        stft_weight=1.0,
+        energy_weight=0.0,
+        fft_sizes=[64, 128, 256, 1024, 4096]
+    ).to(device)
     criterion2 = MSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
