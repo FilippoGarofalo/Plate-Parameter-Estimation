@@ -26,7 +26,7 @@ def main():
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
-    PHASE1_DURATION = 3  
+    PHASE1_DURATION = 1  
     ### END MODIFIED ###
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
