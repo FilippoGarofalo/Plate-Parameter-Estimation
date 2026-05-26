@@ -161,7 +161,7 @@ def main():
             use_mse = True
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
-                param_group['lr'] = 0.01
+                param_group['lr'] = 0.1
             
             # Re-initialize scheduler to forget Phase 1 history
             scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-5)
