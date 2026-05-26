@@ -26,7 +26,7 @@ def main():
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
-    PHASE1_DURATION = 0.5  
+    PHASE1_DURATION = 3  
     ### END MODIFIED ###
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -108,7 +108,6 @@ def main():
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=100, min_lr=1e-4)
-    previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
@@ -155,8 +154,11 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         
-        # ── Scheduler step ──
-        scheduler.step(loss.item())
+        # ── Scheduler step — only at full duration so loss values are comparable ──
+        # During the ramp (curr_duration < STFT_DURATION) the window grows each iter,
+        # making loss values incomparable; stepping then causes premature LR reductions.
+        if curr_duration >= STFT_DURATION:
+            scheduler.step(loss.item())
         if iteration % 10 == 0:
             print(f" [diag] STFT phase: iter {iteration}, loss={loss.item():.4f}, "
                   f"lr={optimizer.param_groups[0]['lr']:.6f}")
