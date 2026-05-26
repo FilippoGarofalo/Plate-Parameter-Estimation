@@ -107,12 +107,12 @@ def main():
     ).to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-3)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=100, min_lr=1e-4)
     previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 1.0
+    STFT_DURATION = 2.0
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -156,7 +156,7 @@ def main():
         optimizer.step()
         
         # ── Scheduler step ──
-        #scheduler.step(loss.item())
+        scheduler.step(loss.item())
         if iteration % 10 == 0:
             print(f" [diag] STFT phase: iter {iteration}, loss={loss.item():.4f}, "
                   f"lr={optimizer.param_groups[0]['lr']:.6f}")
