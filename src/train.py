@@ -4,7 +4,7 @@ import copy  ### MODIFIED: Added missing import ###
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import MSELoss
+from loss2 import NMSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -27,7 +27,7 @@ def main():
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
-    PHASE1_DURATION = 0.2  
+    PHASE1_DURATION = 0.5  
     ### END MODIFIED ###
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
@@ -106,7 +106,7 @@ def main():
         energy_weight=0.0,
         fft_sizes=[64, 128, 256, 1024, 4096]
     ).to(device)
-    criterion2 = MSELoss().to(device)
+    criterion2 = NMSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-3)
@@ -125,9 +125,9 @@ def main():
     # Mirrors ReduceLROnPlateau logic: if relative improvement over
     # the last STFT_PLATEAU_PATIENCE steps is < STFT_PLATEAU_REL_TOL,
     # fire the switch.
-    STFT_PLATEAU_PATIENCE  = 80     # iterations without rel-improvement
+    STFT_PLATEAU_PATIENCE  = 100     # iterations without rel-improvement
     STFT_PLATEAU_REL_TOL   = 5e-4   # 0.05% relative improvement threshold
-    STFT_MIN_ITERS         = 100    # don't switch during the warmup ramp
+    STFT_MIN_ITERS         = 300    # don't switch during the warmup ramp
     _stft_best             = float('inf')
     _stft_no_improve       = 0
 
