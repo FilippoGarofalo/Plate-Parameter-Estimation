@@ -3,14 +3,12 @@ from scipy.stats import qmc
 from utils import (
     inverse_map_sigm_linear,
     inverse_map_sigm_log,
-    inverse_map_softplus_linear,
-    inverse_map_softplus_log
 )
 
 # Physical bounds — must match model.py get_physical_parameters()
 MU_BOUNDS      = (2.43,   106.15)
 D_BOUNDS       = (0.2805, 201.188)
-T0_BOUNDS      = (1, 411.52)
+T0_BOUNDS      = (9.4e-5, 411.52)
 LY_BOUNDS      = (1.1,    4.0)
 XO_FRAC_BOUNDS = (0.51,   1.0)   # xo as fraction of Lx=1.0
 YO_FRAC_BOUNDS = (0.51,   1.0)   # yo as fraction of Ly
@@ -30,9 +28,9 @@ def lhs_sample_raw_params_2d(n_starts, seed=42):
         T0_over_mu = log_interp(u[1], *T0_BOUNDS)
         mu         = log_interp(u[2], *MU_BOUNDS)
 
-        D_over_mu_raw  = inverse_map_softplus_log(D_over_mu, *D_BOUNDS)
-        T0_over_mu_raw = inverse_map_softplus_log(T0_over_mu, *T0_BOUNDS, scale=T0_WEIGHT)
-        mu_raw         = inverse_map_softplus_log(mu, *MU_BOUNDS)
+        D_over_mu_raw  = inverse_map_sigm_log(D_over_mu, *D_BOUNDS)
+        T0_over_mu_raw = inverse_map_sigm_log(T0_over_mu, *T0_BOUNDS, scale=T0_WEIGHT)
+        mu_raw         = inverse_map_sigm_log(mu, *MU_BOUNDS)
 
         raw_params_list.append({
             'mu_raw':         float(mu_raw),    # default → middle of range
@@ -75,9 +73,9 @@ def lhs_sample_raw_params(n_starts: int, seed: int = 42) -> list[dict]:
         yo         = lin_interp(u[5], *YO_FRAC_BOUNDS) * Ly
 
         # Invert to raw space
-        mu_raw         = inverse_map_softplus_log(mu,         *MU_BOUNDS)
-        D_over_mu_raw  = inverse_map_softplus_log(D_over_mu,  *D_BOUNDS)
-        T0_over_mu_raw = inverse_map_softplus_log(T0_over_mu, *T0_BOUNDS, scale=T0_WEIGHT)
+        mu_raw         = inverse_map_sigm_log(mu,         *MU_BOUNDS)
+        D_over_mu_raw  = inverse_map_sigm_log(D_over_mu,  *D_BOUNDS)
+        T0_over_mu_raw = inverse_map_sigm_log(T0_over_mu, *T0_BOUNDS, scale=T0_WEIGHT)
         Ly_raw         = inverse_map_sigm_linear(Ly, *LY_BOUNDS)
         xo_raw         = inverse_map_sigm_linear(xo, *XO_FRAC_BOUNDS)
         yo_raw         = inverse_map_sigm_linear(yo, 0.51 * Ly, Ly)
