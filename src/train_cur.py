@@ -111,7 +111,7 @@ def train_on_target(
     STFT_DURATION = 2.0
     
     # We switch the curriculum exactly halfway through the iterations
-    CURRICULUM_SWITCH_ITER = num_iterations // 2 
+    CURRICULUM_SWITCH_ITER = num_iterations // 4
 
     # 3. OPTIMIZATION LOOP
     start_time = time.time()
@@ -228,7 +228,7 @@ def train_on_target(
 def main():
     parser = argparse.ArgumentParser(description="Plate parameter estimation")
     parser.add_argument("target_npz", type=str, help="Path to target .npz IR file")
-    parser.add_argument("--print-every", type=int, default=100, help="Log every N iterations")
+    parser.add_argument("--print-every", type=int, default=20, help="Log every N iterations")
     parser.add_argument("--num-iterations", type=int, default=1000, help="Number of iterations")
     parser.add_argument("--progress-path", type=str, default="target/train_progress.npz")
     args = parser.parse_args()
