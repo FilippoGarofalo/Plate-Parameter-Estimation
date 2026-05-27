@@ -61,13 +61,20 @@ class DifferentiableModalPlate(nn.Module):
         self.yo_raw         = init_param('yo_raw', 0.0)
 
     def get_physical_parameters(self):
-        mu = map_sigm_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        D_over_mu = map_sigm_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        T0_over_mu = map_sigm_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=0.1)
+        mu_r = torch.clamp(self.mu_raw, min=-5.0, max=5.0)
+        D_r  = torch.clamp(self.D_over_mu_raw, min=-5.0, max=5.0)
+        T0_r = torch.clamp(self.T0_over_mu_raw, min=-5.0, max=5.0)
+        Ly_r = torch.clamp(self.Ly_raw, min=-5.0, max=5.0)
+        xo_r = torch.clamp(self.xo_raw, min=-5.0, max=5.0)
+        yo_r = torch.clamp(self.yo_raw, min=-5.0, max=5.0)
+
+        mu = map_sigm_log(mu_r, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        D_over_mu = map_sigm_log(D_r, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        T0_over_mu = map_sigm_log(T0_r, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=0.1)
         
-        Ly = map_sigm_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        xo = map_sigm_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        yo = map_sigm_linear(self.yo_raw, 0.51 * Ly, 1.0 * Ly, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        Ly = map_sigm_linear(Ly_r, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        xo = map_sigm_linear(xo_r, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)
+        yo = map_sigm_linear(yo_r, 0.51 * Ly, 1.0 * Ly, dtype=self.dtype, device=self.Lx.device, weight=1.0)
 
         return mu, D_over_mu, T0_over_mu, Ly, xo, yo
     

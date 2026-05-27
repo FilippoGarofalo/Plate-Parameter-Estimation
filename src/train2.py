@@ -136,7 +136,8 @@ def main():
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
 
-        scheduler.step(loss.item());
+        if curr_duration >= STFT_DURATION:
+            scheduler.step(loss.item())
         if iteration% 10 == 0:
             print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
