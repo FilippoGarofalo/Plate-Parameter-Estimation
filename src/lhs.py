@@ -35,7 +35,7 @@ def lhs_sample_raw_params_2d(n_starts, seed=42):
         raw_params_list.append({
             'mu_raw':         float(mu_raw),    # default → middle of range
             'D_over_mu_raw':  float(D_over_mu_raw),
-            'T0_over_mu_raw': float(T0_over_mu_raw),
+            'T0_over_mu_raw': 15.0,
             'Ly_raw':         0.0,    # default
             'xo_raw':         0.0,    # default
             'yo_raw':         0.0,    # default
