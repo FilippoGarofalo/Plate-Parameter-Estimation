@@ -138,13 +138,20 @@ def train_on_target(
 
         optimizer.zero_grad()
 
-        # Dynamic duration ramp that reaches max right before the curriculum switch
+        # Assicuriamoci di non superare mai la durata reale del target
+        max_target_duration = target_ir.shape[0] / sample_rate
+        target_max_stft = min(STFT_DURATION, max_target_duration)
+        
+        # Rampa dinamica che arriva al massimo prima del cambio di curriculum
         ramp_factor = min(1.0, iteration / (CURRICULUM_SWITCH_ITER * 0.8))
-        curr_duration = min(0.05 + ramp_factor * STFT_DURATION, STFT_DURATION)
+        curr_duration = min(0.05 + ramp_factor * target_max_stft, target_max_stft)
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
-        curr_samples = pred_ir.shape[0]
-        target_ir_cropped = target_ir[:curr_samples]
+        
+        # Pareggiamo strettamente le dimensioni (evita crash se il target è più corto di 2 secondi)
+        min_samples = min(pred_ir.shape[0], target_ir.shape[0])
+        pred_ir = pred_ir[:min_samples]
+        target_ir_cropped = target_ir[:min_samples]
 
         criterion.precompute_target_stft(target_ir_cropped)
         loss = criterion(pred_ir, target_ir_cropped)
