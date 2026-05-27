@@ -1,26 +1,22 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
-class NMSELoss(nn.Module):
-    """
-    Normalised Mean Square Error:
-
-        NMSE = ||pred - target||² / ||target||²
-
-    Scale-invariant: a global amplitude offset in both signals cancels out,
-    so the loss only measures waveform shape differences, not absolute level.
-    """
+class MSELoss(nn.Module):
 
     def __init__(self):
         super().__init__()
         self.eps = 1e-9
 
     def forward(self, pred_audio: torch.Tensor, target_audio: torch.Tensor) -> torch.Tensor:
-        pred   = pred_audio.squeeze()
+        pred = pred_audio.squeeze()
         target = target_audio.squeeze()
+        
+        # Normalize by target energy (RMS)
+        target_energy = torch.sqrt(torch.mean(target**2) + self.eps)
+        pred_norm = pred / target_energy
+        target_norm = target / target_energy
 
-        num = torch.sum((pred - target) ** 2)
-        den = torch.sum(target ** 2).clamp(min=self.eps)
-
-        return num / den
+        # Simply compare RMS-normalised signals — no second division by energy^2
+        return F.mse_loss(pred_norm, target_norm) / (target_energy**2 + self.eps)
