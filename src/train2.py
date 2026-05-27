@@ -106,7 +106,7 @@ def main():
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 1.0        
+    STFT_DURATION = 0.5        
     MSE_DURATION = duration - 0.05  # dynamic safety margin to avoid file-end clipping
     use_mse = False
     mse_start_iter = None         
@@ -144,10 +144,6 @@ def main():
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
-
-        scheduler.step(loss.item());
-        if iteration% 10 == 0:
-            print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
         # Step 4: Backward Pass
         loss.backward()
@@ -160,7 +156,7 @@ def main():
         optimizer.step()
         
         ### MODIFIED: Restored Phase Switch Scheduler Reset ###
-        if not use_mse and loss.item() > 50:
+        if not use_mse and loss.item() < 0.10:
             use_mse = True
             mse_start_iter = iteration
             for param_group in optimizer.param_groups:
