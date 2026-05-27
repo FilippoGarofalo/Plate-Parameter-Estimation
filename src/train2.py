@@ -99,18 +99,13 @@ def main():
     model.load_state_dict(best_state_dict)
 
     ### MODIFIED: Cleaned up duplicate declarations ###
-    criterion2 = MSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, min_lr=1e-4)
-    previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     STFT_DURATION = 1.0        
-    MSE_DURATION = duration - 0.05  # dynamic safety margin to avoid file-end clipping
-    use_mse = False
-    mse_start_iter = None         
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -125,22 +120,17 @@ def main():
             print(" [diag] forward...", flush=True)
 
         ### MODIFIED: Restored the correct curriculum logic ###
-        if not use_mse:
-            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
-        else:
-            mse_iters_elapsed = iteration - mse_start_iter
-            curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
-        ### END MODIFIED ###
+        
+        curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
+        
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
         
-        if not use_mse:
-            criterion.precompute_target_stft(target_ir_cropped)
-            loss = criterion(pred_ir, target_ir_cropped)
-        else:
-            loss = criterion2(pred_ir, target_ir_cropped)
+       
+        criterion.precompute_target_stft(target_ir_cropped)
+        loss = criterion(pred_ir, target_ir_cropped)
 
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
@@ -159,23 +149,6 @@ def main():
         
         # Step 6: Update Parameters
         optimizer.step()
-        
-        ### MODIFIED: Restored Phase Switch Scheduler Reset ###
-        if not use_mse and loss.item() < 0.10:
-            use_mse = True
-            mse_start_iter = iteration
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = 0.01
-            
-            # Re-initialize scheduler to forget Phase 1 history
-            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-5)
-            print(f" [switch] → MSE at iter {iteration}, loss={loss.item():.4f}")
-
-        ### MODIFIED: Restored continuous Scheduler step logic ###
-        if use_mse and curr_duration == MSE_DURATION:
-            scheduler.step(loss.item())
-            if iteration % 10 == 0:
-                print(f" [diag] MSE phase: Plateau check at iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
         
         optimizer.zero_grad()
         
