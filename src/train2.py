@@ -4,7 +4,7 @@ import copy  ### MODIFIED: Added missing import ###
 import numpy as np
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import MSELoss
+from loss2 import NMSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -98,7 +98,7 @@ def main():
     model.load_state_dict(best_state_dict)
 
     ### MODIFIED: Cleaned up duplicate declarations ###
-    criterion2 = MSELoss().to(device)
+    criterion2 = NMSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-4)
