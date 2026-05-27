@@ -8,7 +8,7 @@ from loss2 import NMSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from lhs import lhs_sample_raw_params_2d
+from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
@@ -16,6 +16,7 @@ def main():
     print(f"Using device: {device}")
 
     target_npz_path = "target/ground_truth_test_1.1.npz"
+    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz" 
     sample_rate     = 44100
     num_iterations  = 1000
     LR              = 0.1
@@ -101,12 +102,12 @@ def main():
     criterion2 = NMSELoss().to(device)
     active_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_optimizer(active_params, lr=LR)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, min_lr=1e-4)
     previous_lr = LR
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 0.5        
+    STFT_DURATION = 1.0        
     MSE_DURATION = duration - 0.05  # dynamic safety margin to avoid file-end clipping
     use_mse = False
     mse_start_iter = None         
@@ -125,7 +126,7 @@ def main():
 
         ### MODIFIED: Restored the correct curriculum logic ###
         if not use_mse:
-            curr_duration = min(0.05 + (iteration/500)*STFT_DURATION, STFT_DURATION)
+            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
         else:
             mse_iters_elapsed = iteration - mse_start_iter
             curr_duration = min(STFT_DURATION + (mse_iters_elapsed / 500) * (MSE_DURATION - STFT_DURATION), MSE_DURATION)
@@ -144,6 +145,10 @@ def main():
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
+
+        scheduler.step(loss.item());
+        if iteration% 10 == 0:
+            print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
         # Step 4: Backward Pass
         loss.backward()
