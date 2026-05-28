@@ -43,7 +43,7 @@ def lhs_sample_raw_params_2d(n_starts, seed=42):
     return raw_params_list
 
 def lhs_sample_raw_params_3d(n_starts, seed=42):
-    sampler = qmc.LatinHypercube(d=3, seed=seed)
+    sampler = qmc.LatinHypercube(d=4, seed=seed)
     unit_samples = sampler.random(n=n_starts)
 
     def log_interp(u, lo, hi):
