@@ -8,7 +8,7 @@ from loss2 import MSELoss
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params
+from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params, lhs_sample_raw_params_3d
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
@@ -44,7 +44,7 @@ def main():
     ).to(device)
 
     # ── PHASE 1: ZERO-SHOT PROBING ────────────────────────────
-    lhs_params = lhs_sample_raw_params_2d(n_starts, seed=lhs_seed)
+    lhs_params = lhs_sample_raw_params_3d(n_starts, seed=lhs_seed)
     print(f"\nPhase 1 — Zero-shot probing {n_starts} LHS starts (Ultra-fast, No Gradients)")
 
     best_probe_loss  = float('inf')
