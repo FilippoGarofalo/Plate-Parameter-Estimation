@@ -1,108 +1,147 @@
 import torch
 import time
+import copy  ### MODIFIED: Added missing import ###
 import numpy as np
+from torch.optim import Adam
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import MSELoss
-from utils import load_challenge_npz, inverse_map_sigm_linear, inverse_map_sigm_log
+from torch.optim import Adam
+from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from scipy.stats import qmc
-
-def find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=50):
-    print(f"\n--- Ricerca del miglior punto di partenza via Latin Hypercube Sampling ({num_samples} samples) ---")
-    
-    sampler = qmc.LatinHypercube(d=4) 
-    lhs_samples = sampler.random(n=num_samples)
-
-    best_loss = float('inf')
-    best_params = None
-    
-    test_duration = 0.5  # <-- 500ms per distinguere meglio Tensione e Rigidità
-    test_samples = int(44100 * test_duration)
-    target_cropped = target_ir[:test_samples]
-    
-    peak_t = torch.max(torch.abs(target_cropped)) + 1e-8
-    target_ir_norm = target_cropped / peak_t
-    criterion.precompute_target_stft(target_ir_norm)
-
-    for i in range(num_samples):
-        # 1. MAPPATURA INTELLIGENTE: Niente più piatti giganti o senza tensione!
-        ly_phys = 1.1 + lhs_samples[i, 0] * (3.0 - 1.1)
-        mu_phys = np.exp(np.log(2.43) + lhs_samples[i, 1] * (np.log(50.0) - np.log(2.43)))
-        
-        # D/mu esplora tra 10 e 190 (lontano dal limite 201)
-        d_mu_phys = np.exp(np.log(10.0) + lhs_samples[i, 2] * (np.log(190.0) - np.log(10.0)))
-        
-        # T0/mu esplora tra 5 e 50 (NIENTE PIÙ ZERO!)
-        t0_mu_phys = np.exp(np.log(5.0) + lhs_samples[i, 3] * (np.log(50.0) - np.log(5.0)))
-
-        # 2. Inverse (Con i weight corretti rispetto a model.py)
-        ly_raw = inverse_map_sigm_linear(ly_phys, 1.1, 4.0)
-        mu_raw = inverse_map_sigm_log(mu_phys, 2.43, 106.15)
-        d_mu_raw = inverse_map_sigm_log(d_mu_phys, 0.2805, 201.188)
-        t0_mu_raw = inverse_map_sigm_log(t0_mu_phys, 9.4e-5, 411.52, scale=0.1)
-
-        # 3. Iniezione temporanea
-        with torch.no_grad():
-            model.Ly_raw.copy_(torch.tensor(ly_raw, dtype=dtype, device=device))
-            model.mu_raw.copy_(torch.tensor(mu_raw, dtype=dtype, device=device))
-            model.D_over_mu_raw.copy_(torch.tensor(d_mu_raw, dtype=dtype, device=device))
-            model.T0_over_mu_raw.copy_(torch.tensor(t0_mu_raw, dtype=dtype, device=device))
-
-            pred_ir = model(duration=test_duration, normalize=True, velCalc=False)
-            
-            if pred_ir.shape[0] < test_samples:
-                pred_ir = torch.nn.functional.pad(pred_ir, (0, test_samples - pred_ir.shape[0]))
-            
-            loss = criterion(pred_ir, target_ir_norm)
-
-        if loss.item() < best_loss:
-            best_loss = loss.item()
-            best_params = (ly_raw, mu_raw, d_mu_raw, t0_mu_raw)
-
+from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params, lhs_sample_raw_params_3d
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    
-    target_npz_path = "target/ground_truth_test_1.1.npz"
-    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz"
-    sample_rate = 44100
-    num_iterations = 2500
-    LR = 0.1
-    dtype = torch.float64
+
+    #target_npz_path = "target/ground_truth_test_1.3.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz" 
+    sample_rate     = 44100
+    num_iterations  = 5000
+    LR              = 0.01
+    dtype           = torch.float64
+
+    # Multi-start settings
+    n_starts        = 150     
+    probe_iters     = 100   # short run per LHS start to find best basin
+    lhs_seed        = 42
+
+    ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
+    PHASE1_DURATION = 0.2  
+    ### END MODIFIED ###
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
+    # ... (il tuo codice di SETUP precedente) ...
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
-    model = DifferentiableModalPlate(
-        sample_rate=sample_rate,
-        dtype=dtype
-    ).to(device)
-    
     criterion = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
-        energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024, 4096],
-       ).to(device)
+        energy_weight=0.5,
+        fft_sizes=[64, 128, 256, 512, 1024, 2048],
+    ).to(device)
+
+    # ── PHASE 1: Multi-start Exploration (LHS) ────────────────
+    print(f"\nPhase 1 — Multi-start exploration: {n_starts} starts, {probe_iters} iters each")
     
-    criterion2 = MSELoss().to(device)
+    # 1. Genera i sample raw usando la tua funzione LHS
+    # Assumiamo che restituisca una lista di dizionari con i valori raw iniziali
+    raw_samples = lhs_sample_raw_params(n_starts, seed=lhs_seed) 
+    best_loss = float('inf')
+    best_raw_params = None
+    
+    probe_duration = 0.2 # 2205 campioni
+    target_ir_cropped_probe = target_ir[:int(sample_rate * probe_duration)]
+    
+    # NOVITÀ: Creiamo un criterion dedicato al probe, SENZA fft_sizes enormi (che causano l'OOM!)
+    # Il massimo qui è 1024, perfettamente contenuto in 2205 campioni.
+    criterion_probe = Loss(
+        mse_weight=0.0,
+        stft_weight=1.0,
+        energy_weight=0.5,
+        fft_sizes=[256, 1024, 2048], 
+    ).to(device)
+    criterion_probe.precompute_target_stft(target_ir_cropped_probe)
+
+    for i, init_params in enumerate(raw_samples):
+        probe_model = DifferentiableModalPlate(
+            sample_rate=sample_rate, 
+            plate_params=init_params, 
+            dtype=torch.float64
+        ).to(device)
+        
+        probe_model.maxOm = 2500.0 * 2 * torch.pi
+        probe_optimizer = Adam([
+        {'params': [probe_model.mu_raw, probe_model.Ly_raw, probe_model.xo_raw, probe_model.yo_raw], 'lr': 0.01},
+            {
+                'params': [probe_model.D_over_mu_raw, probe_model.T0_over_mu_raw], 
+                'lr': 0.05
+            }
+        ])
+        
+        for _ in range(probe_iters):
+            # set_to_none=True EVITA la frammentazione della VRAM deallocando i tensori gradiente
+            probe_optimizer.zero_grad(set_to_none=True)
+            
+            pred_ir = probe_model(duration=probe_duration, normalize=False, velCalc=False)
+            loss = criterion_probe(pred_ir, target_ir_cropped_probe)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(probe_model.parameters(), max_norm=1.0)
+            probe_optimizer.step()
+            
+        final_probe_loss = loss.item()
+        
+        if (i + 1) % 10 == 0 or i == 0:
+            print(f"  Probe {i+1:03d}/{n_starts} | Loss finale: {final_probe_loss:.4f}")
+            
+        if final_probe_loss < best_loss:
+            best_loss = final_probe_loss
+            best_raw_params = {
+                name: param.detach().cpu().item() 
+                for name, param in probe_model.named_parameters() if param.requires_grad
+            }
+            
+        del probe_model
+        del probe_optimizer
+        del pred_ir
+        del loss
+        torch.cuda.empty_cache()
+
+    print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
+    print(">>> Parametri vincitori inizializzati per la Phase 2.")
+    # ──────────────────────────────────────────────────────────
+
+
+    # ── PHASE 2: Full optimization from best start ────────────────
+    print(f"\nPhase 2 — full optimization for {num_iterations} iterations from best start")
+
+    # Inizializza il modello finale SOLO UNA VOLTA usando best_raw_params
+    model = DifferentiableModalPlate(
+        sample_rate=sample_rate,
+        plate_params=best_raw_params, 
+        dtype=dtype
+    ).to(device)
 
     active_params = filter(lambda p: p.requires_grad, model.parameters())
-    find_best_lhs_start(model, target_ir, criterion, device, dtype, num_samples=50)
-    optimizer = get_optimizer(active_params ,lr=LR)
-
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=1, min_lr=1e-3)
-    previous_lr = LR
     
+    # Dividiamo i parametri dando una forza di rientro (weight_decay) a T0 e D
+    optimizer = Adam([
+        {'params': [model.mu_raw, model.Ly_raw, model.xo_raw, model.yo_raw], 'lr': 0.01},
+        {
+            'params': [model.D_over_mu_raw, model.T0_over_mu_raw], 
+            'lr': 0.01
+        }
+    ])
 
-    #criterion = MSELoss().to(device)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=500, min_lr=1e-4)
+    
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
+
+    STFT_DURATION = 5.0        
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -110,59 +149,53 @@ def main():
     idx = -1
     for iteration in range(num_iterations):
         idx += 1
-        # Step 1: Clear the gradients
         optimizer.zero_grad()
 
         # Step 2: Forward Pass
         if iteration == 0: 
             print(" [diag] forward...", flush=True)
 
-        curr_duration = min(0.05 + (idx / 500) * duration, duration)
-        #curr_duration = min(0.05 + (idx / 500) * duration, duration-3.5)
+        ### MODIFIED: Restored the correct curriculum logic ###
+        if iteration < 1000:
+            curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
+        else:
+            curr_duration = STFT_DURATION
+
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
-        #
-        if(criterion != criterion2):
-            criterion.precompute_target_stft(target_ir_cropped)
-
+        
+       
+        criterion.precompute_target_stft(target_ir_cropped)
         loss = criterion(pred_ir, target_ir_cropped)
+
         if iteration == 0: 
             print(" [diag] loss...", flush=True)
-        #loss = criterion(pred_ir, target_ir)
-
-        # Step 4: Backward Pass
-        if iteration == 0: 
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
+
+        
+        scheduler.step(loss.item())
+        if iteration% 10 == 0:
+            print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
+            
+        # Step 4: Backward Pass
         loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         
         if iteration == 0:
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
             print(f" [diag] grad norms: {grad_norms}", flush=True)
-
-        if criterion == criterion2 and loss.item() < 1:
-            optimizer.param_groups[0]['lr'] = 0.001
-            if(iteration % 10 == 0):
-                print(f" [diag] Reducing LR to {0.001}", flush=True)
-
+        
         # Step 6: Update Parameters
         optimizer.step()
-        if(loss.item() < 0.6 and criterion != criterion2):
-            optimizer.param_groups[0]['lr'] = 0.01
-            if(iteration % 10 == 0):
-                print(f" [diag] Reducing LR to {0.01}", flush=True)
-            if(loss.item() < 0.50):
-                criterion = criterion2;
-                idx = -1
-                print(f" [diag] Switching to MSELoss", flush=True)
+        
         optimizer.zero_grad()
-
-        # Step 6.5: Scheduler step
-        # CRITICAL: ONLY step the scheduler after your progressive growing phase (iteration 200)
-        # Otherwise, the growing signal duration will artificially trigger learning rate drops
+        
+        torch.cuda.empty_cache()
+        
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
-            # Safely extract the current bounded physical values
             mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
             p.detach().cpu().item() for p in model.get_physical_parameters()
             ]
@@ -187,7 +220,6 @@ def main():
     print("Training progress saved to target/train_progress.npz")
 
     # 4. RESULTS
-    # ---------------------------------------------------------
     mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
     p.detach().cpu().item() for p in model.get_physical_parameters()
     ]

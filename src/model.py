@@ -61,9 +61,10 @@ class DifferentiableModalPlate(nn.Module):
         self.yo_raw         = init_param('yo_raw', 0.0)
 
     def get_physical_parameters(self):
+        # SOSTITUISCI LE TRE RIGHE SOFTPLUS CON QUESTE SIGMOIDEE:
         mu = map_sigm_log(self.mu_raw, 2.43, 106.15, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        D_over_mu = map_sigm_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=1.0)
-        T0_over_mu = map_sigm_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=0.1)
+        D_over_mu = map_sigm_log(self.D_over_mu_raw, 0.2805, 201.188, dtype=self.dtype, device=self.Lx.device, weight=2.0)
+        T0_over_mu = map_sigm_log(self.T0_over_mu_raw, 9.4e-5, 411.52, dtype=self.dtype, device=self.Lx.device, weight=2.0)
         
         Ly = map_sigm_linear(self.Ly_raw, 1.1, 4.0, dtype=self.dtype, device=self.Lx.device, weight=1.0)
         xo = map_sigm_linear(self.xo_raw, 0.51 * self.Lx, 1.0 * self.Lx, dtype=self.dtype, device=self.Lx.device, weight=1.0)
@@ -73,38 +74,36 @@ class DifferentiableModalPlate(nn.Module):
     
     def solve_modal_system(self, omega: torch.Tensor, sigma: torch.Tensor, P: torch.Tensor, 
                            num_samples: int) -> torch.Tensor:
-    
         device = omega.device
         dtype = omega.dtype
         
-        # Time indices (shape: [1, T])
+        # Vettore del tempo [1, T]
         n = torch.arange(num_samples, device=device, dtype=dtype).unsqueeze(0)
         
-        # Add dimension for broadcasting (shape: [M, 1])
-        omega = omega.unsqueeze(1)
-        sigma = sigma.unsqueeze(1)
-        P = P.unsqueeze(1)
+        # Inizializziamo l'output finale direttamente a zero
+        y = torch.zeros(num_samples, device=device, dtype=dtype)
         
-        # Denominator sin(omega * k)
-        sin_omega_k = torch.sin(omega * self.k)
-        sin_omega_k = torch.clamp(sin_omega_k, min=1e-12) # Prevent division by zero
-        
-        # Envelope: e^(-sigma * k * (n-1))
-        n_minus_1 = torch.clamp(n - 1, min=0)
-        envelope = torch.exp(-sigma * self.k * n_minus_1)
-        
-        # Oscillator: sin(omega * k * n)
-        oscillator = torch.sin(omega * self.k * n)
-        
-        # Exact impulse response of the 2-pole recursive filter:
-        modes = (P / sin_omega_k) * envelope * oscillator
-        
-        # Sum all modes over the first dimension
-        y = torch.sum(modes, dim=0)
-        
-        # Force initial sample to 0 (since x[n-1] is delayed by 1 step)
+        # CHUNKING: Processiamo 200 modi alla volta. 
+        # La VRAM ringrazia e l'Autograd ricostruisce il grafo perfettamente.
+        chunk_size = 700
+        for i in range(0, omega.shape[0], chunk_size):
+            o_chunk = omega[i:i+chunk_size].unsqueeze(1) # [Chunk, 1]
+            s_chunk = sigma[i:i+chunk_size].unsqueeze(1) # [Chunk, 1]
+            p_chunk = P[i:i+chunk_size].unsqueeze(1)     # [Chunk, 1]
+            
+            sin_omega_k = torch.sin(o_chunk * self.k).clamp_min(1e-12)
+            n_minus_1 = torch.clamp(n - 1, min=0)
+            
+            envelope = torch.exp(-s_chunk * self.k * n_minus_1)
+            oscillator = torch.sin(o_chunk * self.k * n)
+            
+            # Calcolo differenziabile solo per questo blocco di modi
+            modes_chunk = (p_chunk / sin_omega_k) * envelope * oscillator
+            
+            # Sommiamo immediatamente sull'output accumulato
+            y += torch.sum(modes_chunk, dim=0)
+            
         y[0] = 0.0 
-        
         return y
 
     def forward(self, duration: float = 1.0, normalize: bool = True, velCalc: bool = False) -> torch.Tensor:
@@ -116,10 +115,10 @@ class DifferentiableModalPlate(nn.Module):
         # =========================
         # 1. MODAL GRID 
         # =========================
-        #DDx = 110
-        #DDy = 439
+        DDx = 110
+        DDy = 439
 
-    
+        '''
         with torch.no_grad():
             T0_v  = T0_over_mu.item()
             D_v   = D_over_mu.item()
@@ -129,6 +128,7 @@ class DifferentiableModalPlate(nn.Module):
             s     = np.sqrt(max(inner, 0.0))
             DDx   = max(int(np.floor(1.0  / np.pi * s)) + 1, 1)
             DDy   = max(int(np.floor(Ly_v / np.pi * s)) + 1, 1)
+        '''
         
         m_idx = torch.arange(1, DDx + 1, device=device, dtype=self.dtype)
         n_idx = torch.arange(1, DDy + 1, device=device, dtype=self.dtype)

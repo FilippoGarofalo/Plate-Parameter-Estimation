@@ -56,7 +56,8 @@ class Loss(nn.Module):
         # =========================
         # 1. TIME-DOMAIN MSE
         # =========================
-        mse_loss = F.mse_loss(norm_pred.squeeze(), norm_target.squeeze())
+        target_variance = torch.mean(target_audio**2).clamp_min(self.eps)
+        mse_loss = F.mse_loss(pred_audio, target_audio) / target_variance
 
         # =========================
         # 2. ENERGY LOSS

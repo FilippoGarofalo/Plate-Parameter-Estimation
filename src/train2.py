@@ -2,9 +2,10 @@ import torch
 import time
 import copy  ### MODIFIED: Added missing import ###
 import numpy as np
+from torch.optim import Adam
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import MSELoss
+from torch.optim import Adam
 from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -15,16 +16,16 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = "target/ground_truth_test_1.1.npz"
-    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0014.npz" 
+    #target_npz_path = "target/ground_truth_test_1.2.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz" 
     sample_rate     = 44100
-    num_iterations  = 1000
-    LR              = 0.1
+    num_iterations  = 3000
+    LR              = 0.01
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 100     
-    probe_iters     = 50   # short run per LHS start to find best basin
+    n_starts        = 150     
+    probe_iters     = 100   # short run per LHS start to find best basin
     lhs_seed        = 42
 
     ### MODIFIED: Bumped to 0.2 so 4096 and 8192 FFT sizes don't crash
@@ -33,79 +34,114 @@ def main():
 
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
+    # ... (il tuo codice di SETUP precedente) ...
     duration = len(target_ir) / sample_rate
     print(f"Target IR loaded: {len(target_ir)} samples ({duration:.2f} seconds)")
 
     criterion = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
-        energy_weight=0.0,
-        fft_sizes=[64, 128, 256, 1024, 4096]
+        energy_weight=0.5,
+        fft_sizes=[64, 128, 256, 512, 1024, 2048, 4096],
     ).to(device)
 
-    # ── PHASE 1: ZERO-SHOT PROBING ────────────────────────────
-    lhs_params = lhs_sample_raw_params_3d(n_starts, seed=lhs_seed)
-    print(f"\nPhase 1 — Zero-shot probing {n_starts} LHS starts (Ultra-fast, No Gradients)")
+    # ── PHASE 1: Multi-start Exploration (LHS) ────────────────
+    print(f"\nPhase 1 — Multi-start exploration: {n_starts} starts, {probe_iters} iters each")
+    
+    # 1. Genera i sample raw usando la tua funzione LHS
+    # Assumiamo che restituisca una lista di dizionari con i valori raw iniziali
+    raw_samples = lhs_sample_raw_params(n_starts, seed=lhs_seed) 
+    best_loss = float('inf')
+    best_raw_params = None
+    
+    probe_duration = 0.2 # 2205 campioni
+    target_ir_cropped_probe = target_ir[:int(sample_rate * probe_duration)]
+    
+    # NOVITÀ: Creiamo un criterion dedicato al probe, SENZA fft_sizes enormi (che causano l'OOM!)
+    # Il massimo qui è 1024, perfettamente contenuto in 2205 campioni.
+    criterion_probe = Loss(
+        mse_weight=0.0,
+        stft_weight=1.0,
+        energy_weight=0.5,
+        fft_sizes=[256, 1024, 2048], 
+    ).to(device)
+    criterion_probe.precompute_target_stft(target_ir_cropped_probe)
 
-    best_probe_loss  = float('inf')
-    best_state_dict  = None
-    phase1_start     = time.time()
-
-    # Precompute the probe target ONCE for all 100 samples
-    probe_target = target_ir[:int(PHASE1_DURATION * sample_rate)]
-    criterion.precompute_target_stft(probe_target)
-
-    for start_idx, raw_params in enumerate(lhs_params):
-        model = DifferentiableModalPlate(
-            sample_rate=sample_rate,
-            plate_params=raw_params,
-            dtype=dtype
+    for i, init_params in enumerate(raw_samples):
+        probe_model = DifferentiableModalPlate(
+            sample_rate=sample_rate, 
+            plate_params=init_params, 
+            dtype=torch.float64
         ).to(device)
-
-        # ⚡ CRITICAL FIX: No gradients! Just evaluate the physics once.
-        with torch.no_grad():
-            pred_ir = model(duration=PHASE1_DURATION, normalize=False, velCalc=False)
-            probe_loss = criterion(pred_ir, probe_target).item()
-
-        # Get physical parameters for logging
-        mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
-            p.cpu().item() for p in model.get_physical_parameters()
-        ]
         
-        # Only print every 10th start to keep the console clean, OR if we find a new best
-        if probe_loss < best_probe_loss:
-            best_probe_loss = probe_loss
-            best_state_dict = copy.deepcopy(model.state_dict())
+        probe_model.maxOm = 2500.0 * 2 * torch.pi
+        probe_optimizer = Adam([
+        {'params': [probe_model.mu_raw, probe_model.Ly_raw, probe_model.xo_raw, probe_model.yo_raw], 'lr': 0.01},
+            {
+                'params': [probe_model.D_over_mu_raw, probe_model.T0_over_mu_raw], 
+                'lr': 0.05
+            }
+        ])
+        
+        for _ in range(probe_iters):
+            # set_to_none=True EVITA la frammentazione della VRAM deallocando i tensori gradiente
+            probe_optimizer.zero_grad(set_to_none=True)
             
-            print(f"  Start {start_idx + 1:02d}/{n_starts} | probe loss: {probe_loss:.6f} | "
-                  f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
-                  f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
-            print(f"  >> New best probe (loss={best_probe_loss:.6f})")
-
-        # Free GPU memory
-        del model, pred_ir
+            pred_ir = probe_model(duration=probe_duration, normalize=False, velCalc=False)
+            loss = criterion_probe(pred_ir, target_ir_cropped_probe)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(probe_model.parameters(), max_norm=1.0)
+            probe_optimizer.step()
+            
+        final_probe_loss = loss.item()
+        
+        if (i + 1) % 10 == 0 or i == 0:
+            print(f"  Probe {i+1:03d}/{n_starts} | Loss finale: {final_probe_loss:.4f}")
+            
+        if final_probe_loss < best_loss:
+            best_loss = final_probe_loss
+            best_raw_params = {
+                name: param.detach().cpu().item() 
+                for name, param in probe_model.named_parameters() if param.requires_grad
+            }
+            
+        del probe_model
+        del probe_optimizer
+        del pred_ir
+        del loss
         torch.cuda.empty_cache()
 
-    phase1_time = time.time() - phase1_start
-    print(f"\nPhase 1 done in {phase1_time:.2f}s. Best probe loss: {best_probe_loss:.6f}")
+    print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
+    print(">>> Parametri vincitori inizializzati per la Phase 2.")
+    # ──────────────────────────────────────────────────────────
+
 
     # ── PHASE 2: Full optimization from best start ────────────────
     print(f"\nPhase 2 — full optimization for {num_iterations} iterations from best start")
 
+    # Inizializza il modello finale SOLO UNA VOLTA usando best_raw_params
     model = DifferentiableModalPlate(
         sample_rate=sample_rate,
+        plate_params=best_raw_params, 
         dtype=dtype
     ).to(device)
-    model.load_state_dict(best_state_dict)
 
-    ### MODIFIED: Cleaned up duplicate declarations ###
     active_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = get_optimizer(active_params, lr=LR)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, min_lr=1e-4)
+    
+    # Dividiamo i parametri dando una forza di rientro (weight_decay) a T0 e D
+    optimizer = Adam([
+        {'params': [model.mu_raw, model.Ly_raw, model.xo_raw, model.yo_raw], 'lr': 0.01},
+        {
+            'params': [model.D_over_mu_raw, model.T0_over_mu_raw], 
+            'lr': 0.01
+        }
+    ])
+
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=500, min_lr=1e-4)
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 1.0        
+    STFT_DURATION = 3.0        
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
@@ -120,9 +156,10 @@ def main():
             print(" [diag] forward...", flush=True)
 
         ### MODIFIED: Restored the correct curriculum logic ###
-        
-        curr_duration = min(0.05 + (iteration/1000)*STFT_DURATION, STFT_DURATION)
-        
+        if iteration < 1000:
+            curr_duration = min(0.05 + (iteration/2000)*STFT_DURATION, STFT_DURATION)
+        else:
+            curr_duration = STFT_DURATION
 
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
@@ -136,13 +173,15 @@ def main():
             print(" [diag] loss...", flush=True)
             print(f" [diag] loss={loss.item():.6f} backward...", flush=True)
 
-        if curr_duration >= STFT_DURATION:
-            scheduler.step(loss.item())
+        
+        scheduler.step(loss.item())
         if iteration% 10 == 0:
             print(f" [diag] iter {iteration}, loss={loss.item():.4f}, lr={optimizer.param_groups[0]['lr']:.6f}")
             
         # Step 4: Backward Pass
         loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         
         if iteration == 0:
             grad_norms = {n: p.grad.norm().item() for n, p in model.named_parameters() if p.grad is not None}
@@ -152,6 +191,8 @@ def main():
         optimizer.step()
         
         optimizer.zero_grad()
+        
+        torch.cuda.empty_cache()
         
         # Step 7: Print logs and parameter progress
         if iteration % 10 == 0 or iteration == num_iterations - 1:
