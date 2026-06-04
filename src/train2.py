@@ -10,14 +10,16 @@ from utils import load_challenge_npz
 from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params, lhs_sample_raw_params_3d
+from ground_truth import compute_nmse
+
 
 def main():
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    #target_npz_path = "target/ground_truth_test_1.2.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz" 
+    target_npz_path = "target/ground_truth_random_42.npz"
+    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz" 
     sample_rate     = 44100
     num_iterations  = 3000
     LR              = 0.01
@@ -231,6 +233,22 @@ def main():
     print(f"xo := {xo:.4f} m")
     print(f"yo := {yo:.4f} m")
     print("==================================")
+
+    data_keys = np.load(target_npz_path).files
+    if 'gt_mu' in data_keys:
+        estimated = {
+            'mu':         mu,
+            'D_over_mu':  D_over_mu,
+            'T0_over_mu': T0_over_mu,
+            'Ly':         Ly,
+            'xo':         xo,
+            'yo':         yo,
+        }
+        compute_nmse(estimated, target_npz_path)
+    else:
+        print("(NMSE skipped: target file has no embedded ground truth params)")
+
+
 
 if __name__ == "__main__":
     main()
