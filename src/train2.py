@@ -21,7 +21,7 @@ def main():
     target_npz_path = "target/ground_truth_random_42.npz"
     #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz" 
     sample_rate     = 44100
-    num_iterations  = 3000
+    num_iterations  = 900
     LR              = 0.01
     dtype           = torch.float64
 
