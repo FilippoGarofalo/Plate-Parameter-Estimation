@@ -5,6 +5,7 @@ import numpy as np
 from torch.optim import Adam
 from model import DifferentiableModalPlate
 from loss import Loss
+from loss2 import MSELoss
 from torch.optim import Adam
 from utils import load_challenge_npz
 from optimizer import get_optimizer
@@ -18,15 +19,15 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    target_npz_path = "target/ground_truth_random_42.npz"
-    #target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0001.npz" 
+    #target_npz_path = "target/ground_truth_random_42.npz"
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0007.npz" 
     sample_rate     = 44100
-    num_iterations  = 900
+    num_iterations  = 1500
     LR              = 0.01
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 150     
+    n_starts        = 500     
     probe_iters     = 100   # short run per LHS start to find best basin
     lhs_seed        = 42
 
@@ -43,7 +44,7 @@ def main():
     criterion = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
-        energy_weight=0.5,
+        energy_weight=0.0,
         fft_sizes=[64, 128, 256, 512, 1024, 2048, 4096],
     ).to(device)
 
@@ -78,10 +79,14 @@ def main():
         
         probe_model.maxOm = 2500.0 * 2 * torch.pi
         probe_optimizer = Adam([
-        {'params': [probe_model.mu_raw, probe_model.Ly_raw, probe_model.xo_raw, probe_model.yo_raw], 'lr': 0.01},
+        {'params': [probe_model.Ly_raw, probe_model.xo_raw, probe_model.yo_raw], 'lr': 0.01},
             {
                 'params': [probe_model.D_over_mu_raw, probe_model.T0_over_mu_raw], 
                 'lr': 0.05
+            },
+            {
+                'params': [probe_model.mu_raw], 
+                'lr': 0.1
             }
         ])
         
@@ -144,7 +149,6 @@ def main():
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
     STFT_DURATION = 3.0        
-
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
@@ -166,9 +170,8 @@ def main():
         pred_ir = model(duration=curr_duration, normalize=False, velCalc=False)
         curr_samples = pred_ir.shape[0]
         target_ir_cropped = target_ir[:curr_samples]
-        
-       
         criterion.precompute_target_stft(target_ir_cropped)
+
         loss = criterion(pred_ir, target_ir_cropped)
 
         if iteration == 0: 

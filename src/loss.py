@@ -52,21 +52,28 @@ class Loss(nn.Module):
 
         device = pred_audio.device
 
+        scale = 1e6
+        pred_sc = pred_audio.squeeze() * scale
+        target_sc = target_audio.squeeze() * scale
 
-        # =========================
+       # =========================
         # 1. TIME-DOMAIN MSE
         # =========================
-        target_variance = torch.mean(target_audio**2).clamp_min(self.eps)
-        mse_loss = F.mse_loss(pred_audio, target_audio) / target_variance
+        target_variance = torch.mean(target_sc**2).clamp_min(self.eps)
+        
+        mse_loss = F.mse_loss(pred_sc, target_sc) / target_variance
 
+       # =========================
+        # 2. GLOBAL ENERGY LOSS (Volume Assoluto)
         # =========================
-        # 2. ENERGY LOSS
-        # =========================
-        pred_energy = pred_audio**2
-        target_energy = target_audio**2
-
-        target_energy_var = torch.mean(target_energy**2).clamp_min(self.eps)
-        energy_loss = F.mse_loss(pred_energy, target_energy) / target_energy_var
+        pred_total_energy = torch.sum(pred_sc**2)
+        target_total_energy = torch.sum(target_sc**2)
+        
+        # log(A) - log(B). La scala si annulla matematicamente, la precisione si salva!
+        energy_loss = F.l1_loss(
+            torch.log(pred_total_energy + self.eps), 
+            torch.log(target_total_energy + self.eps)
+        )
 
         # =========================
         # 3. MULTI-SCALE STFT
