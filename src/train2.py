@@ -65,7 +65,7 @@ def main():
     criterion_probe = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
-        energy_weight=0.0,
+        energy_weight=0.5,
         fft_sizes=[256, 1024, 2048], 
     ).to(device)
     criterion_probe.precompute_target_stft(target_ir_cropped_probe)
