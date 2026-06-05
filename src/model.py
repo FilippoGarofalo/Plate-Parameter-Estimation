@@ -85,7 +85,7 @@ class DifferentiableModalPlate(nn.Module):
         
         # CHUNKING: Processiamo 200 modi alla volta. 
         # La VRAM ringrazia e l'Autograd ricostruisce il grafo perfettamente.
-        chunk_size = 1000
+        chunk_size = 300
         for i in range(0, omega.shape[0], chunk_size):
             o_chunk = omega[i:i+chunk_size].unsqueeze(1) # [Chunk, 1]
             s_chunk = sigma[i:i+chunk_size].unsqueeze(1) # [Chunk, 1]

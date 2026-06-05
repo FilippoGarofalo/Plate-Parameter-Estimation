@@ -2,6 +2,7 @@ import torch
 import time
 import copy  ### MODIFIED: Added missing import ###
 import numpy as np
+import gc
 from torch.optim import Adam
 from model import DifferentiableModalPlate
 from loss import Loss
@@ -22,14 +23,14 @@ def main():
     print(f"Using device: {device}")
 
     #target_npz_path = "target/ground_truth_random_42.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0007.npz" 
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0002.npz" 
     sample_rate     = 44100
     num_iterations  = 1500
     LR              = 0.01
     dtype           = torch.float64
 
     # Multi-start settings
-    n_starts        = 500     
+    n_starts        = 500   
     probe_iters     = 100   # short run per LHS start to find best basin
     lhs_seed        = 42
 
@@ -197,8 +198,13 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         
-        optimizer.zero_grad()
+        current_loss_val = loss.item() 
         
+        optimizer.zero_grad(set_to_none=True)
+        del pred_ir
+        del target_ir_cropped
+        del loss # Safe to delete the tensor now
+        gc.collect()
         torch.cuda.empty_cache()
         
         # Step 7: Print logs and parameter progress
@@ -206,13 +212,13 @@ def main():
             mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
             p.detach().cpu().item() for p in model.get_physical_parameters()
             ]
-            print(f"Iteration {iteration:04d} | Loss: {loss.item():.6f}")
+            print(f"Iteration {iteration:04d} | Loss: {current_loss_val:.6f}")
             print(f"Ly: {Ly:.4f}m | xo: {xo:.4f}m | yo: {yo:.4f}m | "
             f"mu: {mu:.4f} | D/mu: {D_over_mu:.6f} | T0/mu: {T0_over_mu:.6f}")
             print("-" * 60)
 
             progress['iteration'].append(iteration)
-            progress['loss'].append(loss.item())
+            progress['loss'].append(current_loss_val)
             progress['mu'].append(mu)
             progress['D_over_mu'].append(D_over_mu)
             progress['T0_over_mu'].append(T0_over_mu)
