@@ -108,15 +108,19 @@ def main():
         if final_probe_loss < best_loss:
             best_loss = final_probe_loss
             best_raw_params = {
-                name: param.detach().cpu().item() 
+                name: param.detach().cpu().item()
                 for name, param in probe_model.named_parameters() if param.requires_grad
             }
-            
+
         del probe_model
         del probe_optimizer
         del pred_ir
         del loss
         torch.cuda.empty_cache()
+
+        if best_loss < 0.5:
+            print(f"  Early stop: probe {i+1} reached loss {best_loss:.4f} < 0.5, skipping remaining probes")
+            break
 
     print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
     print(">>> Parametri vincitori inizializzati per la Phase 2.")
@@ -291,42 +295,50 @@ def main():
     target_stem = Path(target_npz_path).stem
     target_index = target_stem.split('_')[-1] if '_' in target_stem else target_stem
 
-    best_params = {
-        'mu':    mu,
-        'D_mu':  D_over_mu,
-        'T0_mu': T0_over_mu,
-        'Ly':    Ly,
-        'op_x':  xo,
-        'op_y':  yo / Ly,
-    }
-    pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False, float_format='%.17g')
+    current_loss = round(best_loss_phase2 if best_params_phase2 is not None else progress['loss'][-1], 6)
 
     summary_row = {
         'target_file':       target_npz_path,
         'target_index':      target_index,
         'duration':          round(duration, 6),
         'optimization_time': round(total_time, 6),
-        'best_loss':         round(best_loss_phase2 if best_params_phase2 is not None else progress['loss'][-1], 6),
-        'iterations':    num_iterations,
+        'best_loss':         current_loss,
+        'iterations':        num_iterations,
     }
     summary_file = output_path / "experiment_summary.csv"
     new_row_df   = pd.DataFrame([summary_row])
+
+    # Decide whether this run improves on any previous run for the same IR
+    should_update = True
     if summary_file.exists():
         existing = pd.read_csv(summary_file)
         mask = existing['target_file'] == target_npz_path
         if mask.any():
             prev_loss = existing.loc[mask, 'best_loss'].values[0]
-            if summary_row['best_loss'] < prev_loss:
+            if current_loss < prev_loss:
                 existing = existing[~mask]
                 pd.concat([existing, new_row_df], ignore_index=True).to_csv(summary_file, index=False)
-                print(f"\nBetter run (loss {summary_row['best_loss']:.6f} < {prev_loss:.6f}), results updated in {summary_file}")
+                print(f"\nBetter run (loss {current_loss:.6f} < {prev_loss:.6f}), results updated")
             else:
-                print(f"\nPrevious run was better (loss {prev_loss:.6f} <= {summary_row['best_loss']:.6f}), keeping old results")
+                should_update = False
+                print(f"\nPrevious run was better (loss {prev_loss:.6f} <= {current_loss:.6f}), keeping old results")
         else:
             pd.concat([existing, new_row_df], ignore_index=True).to_csv(summary_file, index=False)
             print(f"\nResults saved to {summary_file}")
     else:
         new_row_df.to_csv(summary_file, index=False)
+        print(f"\nResults saved to {summary_file}")
+
+    if should_update:
+        best_params = {
+            'mu':    mu,
+            'D_mu':  D_over_mu,
+            'T0_mu': T0_over_mu,
+            'Ly':    Ly,
+            'op_x':  xo,
+            'op_y':  yo / Ly,
+        }
+        pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False, float_format='%.17g')
         print(f"\nResults saved to {summary_file}")
 
 
