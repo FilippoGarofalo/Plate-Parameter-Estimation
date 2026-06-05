@@ -151,7 +151,10 @@ def main():
     
     progress = {'iteration': [], 'loss': [], 'mu': [], 'D_over_mu': [], 'T0_over_mu': [], 'Ly': [], 'xo': [], 'yo': []}
 
-    STFT_DURATION = 3.0        
+    STFT_DURATION = 3.0
+    best_loss_phase2   = float('inf')
+    best_params_phase2 = None
+
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
     start_time = time.time()
@@ -198,8 +201,22 @@ def main():
         # Step 6: Update Parameters
         optimizer.step()
         
-        current_loss_val = loss.item() 
-        
+        current_loss_val = loss.item()
+
+        # Track best physical parameters only after full-duration phase starts (iteration >= 1000)
+        if iteration >= 1000 and current_loss_val < best_loss_phase2:
+            best_loss_phase2 = current_loss_val
+            with torch.no_grad():
+                _mu, _D, _T0, _Ly, _xo, _yo = model.get_physical_parameters()
+                best_params_phase2 = {
+                    'mu':        _mu.item(),
+                    'D_over_mu': _D.item(),
+                    'T0_over_mu':_T0.item(),
+                    'Ly':        _Ly.item(),
+                    'xo':        _xo.item(),
+                    'yo':        _yo.item(),
+                }
+
         optimizer.zero_grad(set_to_none=True)
         del pred_ir
         del target_ir_cropped
@@ -233,9 +250,18 @@ def main():
     print("Training progress saved to target/train_progress.npz")
 
     # 4. RESULTS
-    mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
-    p.detach().cpu().item() for p in model.get_physical_parameters()
-    ]
+    if best_params_phase2 is not None:
+        print(f"\nUsing best Phase 2 parameters (loss={best_loss_phase2:.6f})")
+        mu         = best_params_phase2['mu']
+        D_over_mu  = best_params_phase2['D_over_mu']
+        T0_over_mu = best_params_phase2['T0_over_mu']
+        Ly         = best_params_phase2['Ly']
+        xo         = best_params_phase2['xo']
+        yo         = best_params_phase2['yo']
+    else:
+        mu, D_over_mu, T0_over_mu, Ly, xo, yo = [
+            p.detach().cpu().item() for p in model.get_physical_parameters()
+        ]
     print("\n=== FINAL ESTIMATED PARAMETERS ===")
     print(f"mu := {mu:.6f}")
     print(f"D/mu := {D_over_mu:.6f}")
@@ -283,7 +309,7 @@ def main():
         'target_index':      target_index,
         'duration':          round(duration, 6),
         'optimization_time': round(total_time, 6),
-        'best_loss':         round(progress['loss'][-1], 6),
+        'best_loss':         round(best_loss_phase2 if best_params_phase2 is not None else progress['loss'][-1], 6),
         'iterations':    num_iterations,
     }
     summary_file = output_path / "experiment_summary.csv"
