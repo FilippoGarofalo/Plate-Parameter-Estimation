@@ -12,6 +12,8 @@ from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params, lhs_sample_raw_params_3d
 from ground_truth import compute_nmse
+import pandas as pd
+from pathlib import Path
 
 
 def main():
@@ -237,7 +239,9 @@ def main():
     print(f"yo := {yo:.4f} m")
     print("==================================")
 
-    data_keys = np.load(target_npz_path).files
+    npz_data  = np.load(target_npz_path)
+    data_keys = npz_data.files
+    overall_nmse = None
     if 'gt_mu' in data_keys:
         estimated = {
             'mu':         mu,
@@ -247,9 +251,42 @@ def main():
             'xo':         xo,
             'yo':         yo,
         }
-        compute_nmse(estimated, target_npz_path)
+        _, overall_nmse = compute_nmse(estimated, target_npz_path)
     else:
         print("(NMSE skipped: target file has no embedded ground truth params)")
+
+    # ── Save results to experiment_results_taskA/ ────────────────
+    output_path = Path("experiment_results_taskA")
+    output_path.mkdir(exist_ok=True)
+
+    target_stem = Path(target_npz_path).stem
+    target_index = target_stem.split('_')[-1] if '_' in target_stem else target_stem
+
+    best_params = {
+        'mu': mu, 'D_over_mu': D_over_mu, 'T0_over_mu': T0_over_mu,
+        'Ly': Ly, 'xo': xo, 'yo': yo,
+    }
+    pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False)
+
+    summary_row = {
+        'target_file':       target_npz_path,
+        'target_index':      target_index,
+        'duration':          round(duration, 6),
+        'optimization_time': round(total_time, 6),
+        'best_loss':         round(progress['loss'][-1], 6),
+        'n_starts':          n_starts,
+        'probe_iters':       probe_iters,
+        'num_iterations':    num_iterations,
+        'overall_nmse':      round(overall_nmse, 6) if overall_nmse is not None else '',
+        **{k: round(v, 8) for k, v in best_params.items()},
+    }
+    summary_file = output_path / "experiment_summary.csv"
+    summary_df   = pd.DataFrame([summary_row])
+    if summary_file.exists():
+        summary_df.to_csv(summary_file, mode='a', header=False, index=False)
+    else:
+        summary_df.to_csv(summary_file, index=False)
+    print(f"\nResults appended to {summary_file}")
 
 
 
