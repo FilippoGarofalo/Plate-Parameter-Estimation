@@ -1,17 +1,14 @@
 import torch
 import time
-import copy  ### MODIFIED: Added missing import ###
 import numpy as np
 import gc
 from torch.optim import Adam
 from model import DifferentiableModalPlate
 from loss import Loss
-from loss2 import MSELoss
 from torch.optim import Adam
 from utils import load_challenge_npz
-from optimizer import get_optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from lhs import lhs_sample_raw_params_2d, lhs_sample_raw_params, lhs_sample_raw_params_3d
+from lhs import lhs_sample_raw_params
 from ground_truth import compute_nmse
 import pandas as pd
 from pathlib import Path
@@ -302,7 +299,7 @@ def main():
         'op_x':  xo,
         'op_y':  yo / Ly,
     }
-    pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False)
+    pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False, float_format='%.17g')
 
     summary_row = {
         'target_file':       target_npz_path,
