@@ -67,7 +67,7 @@ def main():
     criterion_probe = Loss(
         mse_weight=0.0,
         stft_weight=1.0,
-        energy_weight=0.5,
+        energy_weight=0.0,
         fft_sizes=[256, 1024, 2048], 
     ).to(device)
     criterion_probe.precompute_target_stft(target_ir_cropped_probe)
@@ -262,27 +262,13 @@ def main():
     target_stem = Path(target_npz_path).stem
     target_index = target_stem.split('_')[-1] if '_' in target_stem else target_stem
 
-    _rho = 7850.0
-    _nu  = 0.25
-    _h   = mu / _rho
-    _E   = D_over_mu * 12 * (1 - _nu**2) * _rho / (_h**2)
-    _T0  = T0_over_mu * mu
-
     best_params = {
-        'Lx':      1.0,
-        'Ly':      Ly,
-        'h':       _h,
-        'T0':      _T0,
-        'rho':     _rho,
-        'E':       _E,
-        'nu':      _nu,
-        'T60_DC':  6.0,
-        'T60_F1':  2.0,
-        'loss_F1': 500.0,
-        'fp_x':    0.335,
-        'fp_y':    0.467,
-        'op_x':    xo,
-        'op_y':    yo / Ly,
+        'mu':    mu,
+        'D_mu':  D_over_mu,
+        'T0_mu': T0_over_mu,
+        'Ly':    Ly,
+        'op_x':  xo,
+        'op_y':  yo / Ly,
     }
     pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False)
 
