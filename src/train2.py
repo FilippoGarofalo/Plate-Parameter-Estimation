@@ -262,9 +262,27 @@ def main():
     target_stem = Path(target_npz_path).stem
     target_index = target_stem.split('_')[-1] if '_' in target_stem else target_stem
 
+    _rho = 7850.0
+    _nu  = 0.25
+    _h   = mu / _rho
+    _E   = D_over_mu * 12 * (1 - _nu**2) * _rho / (_h**2)
+    _T0  = T0_over_mu * mu
+
     best_params = {
-        'mu': mu, 'D_over_mu': D_over_mu, 'T0_over_mu': T0_over_mu,
-        'Ly': Ly, 'xo': xo, 'yo': yo,
+        'Lx':      1.0,
+        'Ly':      Ly,
+        'h':       _h,
+        'T0':      _T0,
+        'rho':     _rho,
+        'E':       _E,
+        'nu':      _nu,
+        'T60_DC':  6.0,
+        'T60_F1':  2.0,
+        'loss_F1': 500.0,
+        'fp_x':    0.335,
+        'fp_y':    0.467,
+        'op_x':    xo,
+        'op_y':    yo / Ly,
     }
     pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False)
 
@@ -274,19 +292,27 @@ def main():
         'duration':          round(duration, 6),
         'optimization_time': round(total_time, 6),
         'best_loss':         round(progress['loss'][-1], 6),
-        'n_starts':          n_starts,
-        'probe_iters':       probe_iters,
-        'num_iterations':    num_iterations,
-        'overall_nmse':      round(overall_nmse, 6) if overall_nmse is not None else '',
-        **{k: round(v, 8) for k, v in best_params.items()},
+        'iterations':    num_iterations,
     }
     summary_file = output_path / "experiment_summary.csv"
-    summary_df   = pd.DataFrame([summary_row])
+    new_row_df   = pd.DataFrame([summary_row])
     if summary_file.exists():
-        summary_df.to_csv(summary_file, mode='a', header=False, index=False)
+        existing = pd.read_csv(summary_file)
+        mask = existing['target_file'] == target_npz_path
+        if mask.any():
+            prev_loss = existing.loc[mask, 'best_loss'].values[0]
+            if summary_row['best_loss'] < prev_loss:
+                existing = existing[~mask]
+                pd.concat([existing, new_row_df], ignore_index=True).to_csv(summary_file, index=False)
+                print(f"\nBetter run (loss {summary_row['best_loss']:.6f} < {prev_loss:.6f}), results updated in {summary_file}")
+            else:
+                print(f"\nPrevious run was better (loss {prev_loss:.6f} <= {summary_row['best_loss']:.6f}), keeping old results")
+        else:
+            pd.concat([existing, new_row_df], ignore_index=True).to_csv(summary_file, index=False)
+            print(f"\nResults saved to {summary_file}")
     else:
-        summary_df.to_csv(summary_file, index=False)
-    print(f"\nResults appended to {summary_file}")
+        new_row_df.to_csv(summary_file, index=False)
+        print(f"\nResults saved to {summary_file}")
 
 
 
