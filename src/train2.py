@@ -38,6 +38,9 @@ def main():
     PHASE1_DURATION = 0.2  
     ### END MODIFIED ###
 
+    target_stem  = Path(target_npz_path).stem
+    target_index = target_stem.split('_')[-1] if '_' in target_stem else target_stem
+
     target_ir = load_challenge_npz(target_npz_path, device=device, dtype=dtype)
 
     # ... (il tuo codice di SETUP precedente) ...
@@ -61,8 +64,7 @@ def main():
     best_raw_params = None
 
     rng = np.random.default_rng(lhs_seed)
-    plot_probe_indices = set(rng.choice(n_starts, size=3, replace=False).tolist())
-    probe_loss_curves  = {}  # {probe_index: [loss per iter]}
+    probe_loss_curves = {}  # {probe_index: [loss per iter]}
     
     probe_duration = 0.2 # 2205 campioni
     target_ir_cropped_probe = target_ir[:int(sample_rate * probe_duration)]
@@ -138,20 +140,23 @@ def main():
     print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
     print(">>> Parametri vincitori inizializzati per la Phase 2.")
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    for probe_idx, losses in probe_loss_curves.items():
-        ax.plot(losses, label=f"Probe {probe_idx}")
-    ax.set_xlabel("Iteration")
-    ax.set_ylabel("Loss")
-    ax.set_title("Phase 1 — sample probe loss curves")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
-    probe_plot_path.parent.mkdir(exist_ok=True)
-    fig.savefig(probe_plot_path, dpi=150)
-    plt.close(fig)
-    print(f"Probe loss curves saved to {probe_plot_path}")
+    if probe_loss_curves:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        for probe_idx, losses in probe_loss_curves.items():
+            ax.plot(losses, label=f"Probe {probe_idx}")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Loss")
+        ax.set_title("Phase 1 — sample probe loss curves")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+        probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
+        probe_plot_path.parent.mkdir(exist_ok=True)
+        fig.savefig(probe_plot_path, dpi=150)
+        plt.close(fig)
+        print(f"Probe loss curves saved to {probe_plot_path}")
+    else:
+        print("No probe curves to plot (early stop before any tracked probe was reached)")
     # ──────────────────────────────────────────────────────────
 
 
@@ -319,9 +324,6 @@ def main():
     # ── Save results to experiment_results_taskA/ ────────────────
     output_path = Path("experiment_results_taskA")
     output_path.mkdir(exist_ok=True)
-
-    target_stem = Path(target_npz_path).stem
-    target_index = target_stem.split('_')[-1] if '_' in target_stem else target_stem
 
     current_loss = round(best_loss_phase2 if best_params_phase2 is not None else progress['loss'][-1], 6)
 
