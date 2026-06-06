@@ -23,7 +23,7 @@ def main():
     print(f"Using device: {device}")
 
     #target_npz_path = "target/ground_truth_random_42.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0009.npz" 
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0012.npz" 
     sample_rate     = 44100
     num_iterations  = 1500
     LR              = 0.01
@@ -99,9 +99,7 @@ def main():
             }
         ])
         
-        track_this_probe = i in plot_probe_indices
-        if track_this_probe:
-            probe_loss_curves[i] = []
+        probe_loss_curves[i] = []
 
         for _ in range(probe_iters):
             probe_optimizer.zero_grad(set_to_none=True)
@@ -112,8 +110,7 @@ def main():
             torch.nn.utils.clip_grad_norm_(probe_model.parameters(), max_norm=1.0)
             probe_optimizer.step()
 
-            if track_this_probe:
-                probe_loss_curves[i].append(loss.item())
+            probe_loss_curves[i].append(loss.item())
 
         final_probe_loss = loss.item()
         
@@ -140,23 +137,22 @@ def main():
     print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
     print(">>> Parametri vincitori inizializzati per la Phase 2.")
 
-    if probe_loss_curves:
-        fig, ax = plt.subplots(figsize=(8, 4))
-        for probe_idx, losses in probe_loss_curves.items():
-            ax.plot(losses, label=f"Probe {probe_idx}")
-        ax.set_xlabel("Iteration")
-        ax.set_ylabel("Loss")
-        ax.set_title("Phase 1 — sample probe loss curves")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        fig.tight_layout()
-        probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
-        probe_plot_path.parent.mkdir(exist_ok=True)
-        fig.savefig(probe_plot_path, dpi=150)
-        plt.close(fig)
-        print(f"Probe loss curves saved to {probe_plot_path}")
-    else:
-        print("No probe curves to plot (early stop before any tracked probe was reached)")
+    available = list(probe_loss_curves.keys())
+    sampled   = rng.choice(available, size=min(3, len(available)), replace=False)
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for probe_idx in sampled:
+        ax.plot(probe_loss_curves[probe_idx], label=f"Probe {probe_idx}")
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Loss")
+    ax.set_title("Phase 1 — sample probe loss curves")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
+    probe_plot_path.parent.mkdir(exist_ok=True)
+    fig.savefig(probe_plot_path, dpi=150)
+    plt.close(fig)
+    print(f"Probe loss curves saved to {probe_plot_path}")
     # ──────────────────────────────────────────────────────────
 
 
