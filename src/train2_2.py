@@ -17,7 +17,7 @@ from pathlib import Path
 
 # ── Minimal PSO (sequential, GPU-friendly, no logger dependency) ──────────────
 
-def pso(cost_fn, bounds, num_particles=50, max_iter=100, w=0.7, c1=1.5, c2=1.5):
+def pso(cost_fn, bounds, num_particles=50, max_iter=200, w=0.7, c1=1.5, c2=1.5):
     """
     Minimise cost_fn over the box defined by bounds = [(lo, hi), ...].
     Returns (best_position, best_score, score_history).
@@ -63,7 +63,8 @@ def pso(cost_fn, bounds, num_particles=50, max_iter=100, w=0.7, c1=1.5, c2=1.5):
             global_best_score = personal_best_scores[best_idx]
 
         score_history.append(global_best_score)
-        print(f"  PSO iter {it+1:03d}/{max_iter} | best loss: {global_best_score:.4f}")
+        if it%10 == 0:
+            print(f"  PSO iter {it+1:03d}/{max_iter} | best loss: {global_best_score:.4f}")
 
     return global_best, global_best_score, score_history
 
