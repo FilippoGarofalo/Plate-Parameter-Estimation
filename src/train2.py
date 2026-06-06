@@ -137,16 +137,21 @@ def main():
     print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
     print(">>> Parametri vincitori inizializzati per la Phase 2.")
 
-    available = list(probe_loss_curves.keys())
-    sampled   = rng.choice(available, size=min(3, len(available)), replace=False)
+    # Find the best probe index (the one whose params were selected for Phase 2)
+    best_probe_idx = min(probe_loss_curves, key=lambda k: probe_loss_curves[k][-1])
+    others = [k for k in probe_loss_curves if k != best_probe_idx]
+    extra  = rng.choice(others, size=min(10, len(others)), replace=False) if others else []
+    to_plot = [best_probe_idx] + list(extra)
+
     fig, ax = plt.subplots(figsize=(8, 4))
-    for probe_idx in sampled:
-        ax.plot(probe_loss_curves[probe_idx], label=f"Probe {probe_idx}")
+    for probe_idx in to_plot:
+        label = f"Probe {probe_idx} (best)" if probe_idx == best_probe_idx else f"Probe {probe_idx}"
+        ax.semilogy(probe_loss_curves[probe_idx], label=label)
     ax.set_xlabel("Iteration")
-    ax.set_ylabel("Loss")
+    ax.set_ylabel("Loss (log scale)")
     ax.set_title("Phase 1 — sample probe loss curves")
     ax.legend()
-    ax.grid(True, alpha=0.3)
+    ax.grid(True, alpha=0.3, which='both')
     fig.tight_layout()
     probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
     probe_plot_path.parent.mkdir(exist_ok=True)
