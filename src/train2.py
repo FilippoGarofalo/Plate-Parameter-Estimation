@@ -2,6 +2,9 @@ import torch
 import time
 import numpy as np
 import gc
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from torch.optim import Adam
 from model import DifferentiableModalPlate
 from loss import Loss
@@ -20,7 +23,7 @@ def main():
     print(f"Using device: {device}")
 
     #target_npz_path = "target/ground_truth_random_42.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0002.npz" 
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0009.npz" 
     sample_rate     = 44100
     num_iterations  = 1500
     LR              = 0.01
@@ -53,9 +56,13 @@ def main():
     
     # 1. Genera i sample raw usando la tua funzione LHS
     # Assumiamo che restituisca una lista di dizionari con i valori raw iniziali
-    raw_samples = lhs_sample_raw_params(n_starts, seed=lhs_seed) 
+    raw_samples = lhs_sample_raw_params(n_starts, seed=lhs_seed)
     best_loss = float('inf')
     best_raw_params = None
+
+    rng = np.random.default_rng(lhs_seed)
+    plot_probe_indices = set(rng.choice(n_starts, size=3, replace=False).tolist())
+    probe_loss_curves  = {}  # {probe_index: [loss per iter]}
     
     probe_duration = 0.2 # 2205 campioni
     target_ir_cropped_probe = target_ir[:int(sample_rate * probe_duration)]
@@ -90,16 +97,22 @@ def main():
             }
         ])
         
+        track_this_probe = i in plot_probe_indices
+        if track_this_probe:
+            probe_loss_curves[i] = []
+
         for _ in range(probe_iters):
-            # set_to_none=True EVITA la frammentazione della VRAM deallocando i tensori gradiente
             probe_optimizer.zero_grad(set_to_none=True)
-            
+
             pred_ir = probe_model(duration=probe_duration, normalize=False, velCalc=False)
             loss = criterion_probe(pred_ir, target_ir_cropped_probe)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(probe_model.parameters(), max_norm=1.0)
             probe_optimizer.step()
-            
+
+            if track_this_probe:
+                probe_loss_curves[i].append(loss.item())
+
         final_probe_loss = loss.item()
         
         if (i + 1) % 10 == 0 or i == 0:
@@ -124,6 +137,21 @@ def main():
 
     print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
     print(">>> Parametri vincitori inizializzati per la Phase 2.")
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for probe_idx, losses in probe_loss_curves.items():
+        ax.plot(losses, label=f"Probe {probe_idx}")
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Loss")
+    ax.set_title("Phase 1 — sample probe loss curves")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
+    probe_plot_path.parent.mkdir(exist_ok=True)
+    fig.savefig(probe_plot_path, dpi=150)
+    plt.close(fig)
+    print(f"Probe loss curves saved to {probe_plot_path}")
     # ──────────────────────────────────────────────────────────
 
 
