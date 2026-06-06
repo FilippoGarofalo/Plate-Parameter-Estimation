@@ -101,7 +101,8 @@ def main():
         
         probe_loss_curves[i] = []
 
-        for _ in range(probe_iters):
+        skip_probe = False
+        for step in range(probe_iters):
             probe_optimizer.zero_grad(set_to_none=True)
 
             pred_ir = probe_model(duration=probe_duration, normalize=False, velCalc=False)
@@ -112,12 +113,17 @@ def main():
 
             probe_loss_curves[i].append(loss.item())
 
+            if step == 19 and loss.item() >= 1.0:
+                skip_probe = True
+                break
+
         final_probe_loss = loss.item()
-        
+
         if (i + 1) % 10 == 0 or i == 0:
-            print(f"  Probe {i+1:03d}/{n_starts} | Loss finale: {final_probe_loss:.4f}")
-            
-        if final_probe_loss < best_loss:
+            status = " [skipped]" if skip_probe else ""
+            print(f"  Probe {i+1:03d}/{n_starts} | Loss finale: {final_probe_loss:.4f}{status}")
+
+        if not skip_probe and final_probe_loss < best_loss:
             best_loss = final_probe_loss
             best_raw_params = {
                 name: param.detach().cpu().item()
