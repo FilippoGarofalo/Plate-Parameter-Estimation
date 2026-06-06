@@ -150,7 +150,7 @@ def main():
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Loss (log scale)")
     ax.set_title("Phase 1 — sample probe loss curves")
-    ax.legend()
+
     ax.grid(True, alpha=0.3, which='both')
     fig.tight_layout()
     probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
