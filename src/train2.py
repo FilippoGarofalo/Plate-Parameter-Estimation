@@ -23,9 +23,9 @@ def main():
     print(f"Using device: {device}")
 
     #target_npz_path = "target/ground_truth_random_42.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0012.npz" 
+    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0005.npz" 
     sample_rate     = 44100
-    num_iterations  = 1500
+    num_iterations  = 2000
     LR              = 0.01
     dtype           = torch.float64
 
@@ -78,7 +78,7 @@ def main():
         fft_sizes=[256, 1024, 2048], 
     ).to(device)
     criterion_probe.precompute_target_stft(target_ir_cropped_probe)
-
+    start_time = time.time()
     for i, init_params in enumerate(raw_samples):
         probe_model = DifferentiableModalPlate(
             sample_rate=sample_rate, 
@@ -136,12 +136,13 @@ def main():
         del loss
         torch.cuda.empty_cache()
 
-        if best_loss < 0.5:
+        if best_loss < 0.4:
             print(f"  Early stop: probe {i+1} reached loss {best_loss:.4f} < 0.5, skipping remaining probes")
             break
 
     print(f"\n>>> Miglior loss trovata in Phase 1: {best_loss:.4f}")
     print(">>> Parametri vincitori inizializzati per la Phase 2.")
+    print(">>> Tempo impiegato per Phase 1: {:.2f} seconds".format(time.time() - start_time))
 
     # Find the best probe index (the one whose params were selected for Phase 2)
     best_probe_idx = min(probe_loss_curves, key=lambda k: probe_loss_curves[k][-1])
@@ -198,7 +199,6 @@ def main():
 
     # 3. OPTIMIZATION LOOP
     print("\nStarting Optimization")
-    start_time = time.time()
     idx = -1
     for iteration in range(num_iterations):
         idx += 1
@@ -245,7 +245,7 @@ def main():
         current_loss_val = loss.item()
 
         # Track best physical parameters only after full-duration phase starts (iteration >= 1000)
-        if iteration >= 1000 and current_loss_val < best_loss_phase2:
+        if current_loss_val < best_loss_phase2:
             best_loss_phase2 = current_loss_val
             with torch.no_grad():
                 _mu, _D, _T0, _Ly, _xo, _yo = model.get_physical_parameters()
@@ -257,7 +257,9 @@ def main():
                     'xo':        _xo.item(),
                     'yo':        _yo.item(),
                 }
-
+        if current_loss_val < 0.09 and iteration >= 300:
+            print(f" [diag] Early stop at iter {iteration} with loss {current_loss_val:.6f} < 0.05")
+            break
         optimizer.zero_grad(set_to_none=True)
         del pred_ir
         del target_ir_cropped
