@@ -1,3 +1,4 @@
+import os
 import torch
 import time
 import numpy as np
@@ -289,8 +290,10 @@ def main():
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")
 
-    np.savez('target/train_progress.npz', **{k: np.array(v) for k, v in progress.items()})
-    print("Training progress saved to target/train_progress.npz")
+    os.makedirs('TRAIN PROGRESS', exist_ok=True)
+    progress_path = f'TRAIN PROGRESS/{target_stem}_train_progress.npz'
+    np.savez(progress_path, **{k: np.array(v) for k, v in progress.items()})
+    print(f"Training progress saved to {progress_path}")
 
     # 4. RESULTS
     if best_params_phase2 is not None:
@@ -330,8 +333,8 @@ def main():
     else:
         print("(NMSE skipped: target file has no embedded ground truth params)")
 
-    # ── Save results to experiment_results_taskA/ ────────────────
-    output_path = Path("experiment_results_taskA")
+    # ── Save results to results_for_report/ ────────────────
+    output_path = Path("results_for_report")
     output_path.mkdir(exist_ok=True)
 
     current_loss = round(best_loss_phase2 if best_params_phase2 is not None else progress['loss'][-1], 6)
