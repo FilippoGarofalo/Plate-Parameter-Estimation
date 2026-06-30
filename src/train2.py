@@ -1,3 +1,4 @@
+import argparse
 import torch
 import time
 import numpy as np
@@ -8,7 +9,6 @@ import matplotlib.pyplot as plt
 from torch.optim import Adam
 from model import DifferentiableModalPlate
 from loss import Loss
-from torch.optim import Adam
 from utils import load_challenge_npz
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from lhs import lhs_sample_raw_params
@@ -18,12 +18,16 @@ from pathlib import Path
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--target", type=str, default="target/2026-DATASET-STRIPPED/random_IR_0005.npz",
+                        help="Path to the target .npz file")
+    args = parser.parse_args()
+
     # 1. SETUP & HYPERPARAMETERS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    #target_npz_path = "target/ground_truth_random_42.npz"
-    target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0005.npz" 
+    target_npz_path = args.target
     sample_rate     = 44100
     num_iterations  = 1500
     LR              = 0.01
