@@ -1,0 +1,5 @@
+target_file,target_index,duration,optimization_time,best_loss,iterations
+random-IR-16-5.0s/random_IR_0009.npz,9,5.0,875.156049,0.001251,1500
+random-IR-16-5.0s/random_IR_0010.npz,10,5.0,1575.697046,0.000202,1500
+random-IR-16-5.0s/random_IR_0011.npz,11,5.0,1206.593045,0.420272,1500
+random-IR-16-5.0s/random_IR_0012.npz,0012,5.0,775.450395,0.082892,1500
