@@ -1,0 +1,86 @@
+Random Plate Dataset Generation Summary
+========================================
+
+Generation timestamp: 2026-06-30 15:03:48
+Number of IRs requested: 16
+Duration per IR: 5.0s
+Sample rate: 44100 Hz
+Output directory: /mnt/md0/lillo/1st-DAFx-Challenge/random-IR-16-5.0s
+
+Parameter Ranges Used:
+--------------------
+Lx: 1.0 (fixed)
+Ly: [1.1, 4.0]
+h: [0.001, 0.005]
+T0: [0.01, 1000.0]
+rho: [2430.0, 21230.0]
+E: [67000000000.0, 220000000000.0]
+nu: 0.25 (fixed)
+T60_DC: 6.0 (fixed)
+T60_F1: 2.0 (fixed)
+loss_F1: 500.0 (fixed)
+fp_x: 0.335 (fixed)
+fp_y: 0.467 (fixed)
+op_x: [0.51, 1.0]
+op_y: [0.51, 1.0]
+
+Generation Results:
+------------------
+Successful generations: 16
+Failed generations: 0
+Success rate: 100.0%
+Average generation time: 2.29s
+Total generation time: 36.63s
+Min generation time: 1.37s
+Max generation time: 4.20s
+
+Files Generated:
+---------------
+random_IR_0001.wav
+random_IR_params_0001.csv
+random_IR_modes_0001.csv
+random_IR_0002.wav
+random_IR_params_0002.csv
+random_IR_modes_0002.csv
+random_IR_0003.wav
+random_IR_params_0003.csv
+random_IR_modes_0003.csv
+random_IR_0004.wav
+random_IR_params_0004.csv
+random_IR_modes_0004.csv
+random_IR_0005.wav
+random_IR_params_0005.csv
+random_IR_modes_0005.csv
+random_IR_0006.wav
+random_IR_params_0006.csv
+random_IR_modes_0006.csv
+random_IR_0007.wav
+random_IR_params_0007.csv
+random_IR_modes_0007.csv
+random_IR_0008.wav
+random_IR_params_0008.csv
+random_IR_modes_0008.csv
+random_IR_0009.wav
+random_IR_params_0009.csv
+random_IR_modes_0009.csv
+random_IR_0010.wav
+random_IR_params_0010.csv
+random_IR_modes_0010.csv
+random_IR_0011.wav
+random_IR_params_0011.csv
+random_IR_modes_0011.csv
+random_IR_0012.wav
+random_IR_params_0012.csv
+random_IR_modes_0012.csv
+random_IR_0013.wav
+random_IR_params_0013.csv
+random_IR_modes_0013.csv
+random_IR_0014.wav
+random_IR_params_0014.csv
+random_IR_modes_0014.csv
+random_IR_0015.wav
+random_IR_params_0015.csv
+random_IR_modes_0015.csv
+random_IR_0016.wav
+random_IR_params_0016.csv
+random_IR_modes_0016.csv
