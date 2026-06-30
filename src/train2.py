@@ -1,4 +1,3 @@
-import os
 import torch
 import time
 import numpy as np
@@ -26,7 +25,7 @@ def main():
     #target_npz_path = "target/ground_truth_random_42.npz"
     target_npz_path = "target/2026-DATASET-STRIPPED/random_IR_0005.npz" 
     sample_rate     = 44100
-    num_iterations  = 2000
+    num_iterations  = 1500
     LR              = 0.01
     dtype           = torch.float64
 
@@ -161,8 +160,10 @@ def main():
 
     ax.grid(True, alpha=0.3, which='both')
     fig.tight_layout()
-    probe_plot_path = Path("experiment_results_taskA") / f"phase1_probe_curves_{target_index}.png"
-    probe_plot_path.parent.mkdir(exist_ok=True)
+    results_dir   = Path("results")
+    plots_dir     = results_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    probe_plot_path = plots_dir / f"phase1_probe_curves_{target_index}.png"
     fig.savefig(probe_plot_path, dpi=150)
     plt.close(fig)
     print(f"Probe loss curves saved to {probe_plot_path}")
@@ -258,9 +259,7 @@ def main():
                     'xo':        _xo.item(),
                     'yo':        _yo.item(),
                 }
-        if current_loss_val < 0.09 and iteration >= 300:
-            print(f" [diag] Early stop at iter {iteration} with loss {current_loss_val:.6f} < 0.05")
-            break
+        
         optimizer.zero_grad(set_to_none=True)
         del pred_ir
         del target_ir_cropped
@@ -290,8 +289,9 @@ def main():
     total_time = time.time() - start_time
     print(f"\nOptimization complete in {total_time:.2f} seconds.")
 
-    os.makedirs('TRAIN PROGRESS', exist_ok=True)
-    progress_path = f'TRAIN PROGRESS/{target_stem}_train_progress.npz'
+    train_progress_dir = results_dir / "train_progress"
+    train_progress_dir.mkdir(parents=True, exist_ok=True)
+    progress_path = train_progress_dir / f"{target_stem}_train_progress.npz"
     np.savez(progress_path, **{k: np.array(v) for k, v in progress.items()})
     print(f"Training progress saved to {progress_path}")
 
@@ -333,9 +333,9 @@ def main():
     else:
         print("(NMSE skipped: target file has no embedded ground truth params)")
 
-    # ── Save results to results_for_report/ ────────────────
-    output_path = Path("results_for_report")
-    output_path.mkdir(exist_ok=True)
+    # ── Save results ────────────────
+    output_path = results_dir
+    (results_dir / "best_params").mkdir(parents=True, exist_ok=True)
 
     current_loss = round(best_loss_phase2 if best_params_phase2 is not None else progress['loss'][-1], 6)
 
@@ -380,7 +380,7 @@ def main():
             'op_x':  xo,
             'op_y':  yo / Ly,
         }
-        pd.DataFrame([best_params]).to_csv(output_path / f"best_params_{target_index}.csv", index=False, float_format='%.17g')
+        pd.DataFrame([best_params]).to_csv(results_dir / "best_params" / f"best_params_{target_index}.csv", index=False, float_format='%.17g')
         print(f"\nResults saved to {summary_file}")
 
 
